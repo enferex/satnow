@@ -73,8 +73,18 @@ static std::vector<Tle> readTLEs(const char *fname) {
   return tles;
 }
 
+static bool tryParseFile(const std::string &str) {
+  // If it looks like a URL, don't try to open it.
+  if (str.find("://") != std::string::npos) return false;
+
+  // Try to open the thing.
+  ifstream fh(str);
+  if (!fh.is_open() return false;
+
+  return false;
+}
+
 static bool tryParseURL(const std::string &str) { return false; }
-static bool tryParseFile(const std::string &str) { return false; }
 
 // Update the database of TLEs.
 static void update(const char *sourceFile, const char *dbPath) {
