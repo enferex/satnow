@@ -1,10 +1,10 @@
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <cstdlib>
-#include <vector>
-#include <cctype>
 #include <getopt.h>
+#include <cctype>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
 
 #include <CoordTopocentric.h>
 #include <Observer.h>
@@ -14,16 +14,16 @@
 
 // Command line options.
 static const struct option opts[] = {
-  {"alt", required_argument, nullptr,    'a'},
-  {"lat", required_argument, nullptr,    'x'},
-  {"lon", required_argument, nullptr,    'y'},
-  {"update", required_argument, nullptr, 'u'},
-  {"db", required_argument, nullptr, 'd'}
-};
+    {"alt", required_argument, nullptr, 'a'},
+    {"lat", required_argument, nullptr, 'x'},
+    {"lon", required_argument, nullptr, 'y'},
+    {"update", required_argument, nullptr, 'u'},
+    {"db", required_argument, nullptr, 'd'}};
 
-[[ noreturn ]] static void usage(const char *execname) {
+[[noreturn]] static void usage(const char *execname) {
   std::cout << "Usage: " << execname
-            << " [file.tle ...] [--lat=val --lon=val --alt=val --update=file --db=file]"
+            << " [file.tle ...] [--lat=val --lon=val --alt=val --update=file "
+               "--db=file]"
             << std::endl
             << "  --lat=<latitude in degrees>" << std::endl
             << "  --lon=<longitude in degrees>" << std::endl
@@ -53,59 +53,63 @@ static std::vector<Tle> readTLEs(const char *fname) {
       name = line1;
       ++lineNo;
       if (!std::getline(fh, line1)) {
-        std::cerr << "Unexpected error reading TLE line 1 at line " << lineNo << " in " << fname << std::endl;
+        std::cerr << "Unexpected error reading TLE line 1 at line " << lineNo
+                  << " in " << fname << std::endl;
         return tles;
       }
     }
     ++lineNo;
     if (!std::getline(fh, line2)) {
-      std::cerr << "Unexpected error reading TLE line 2 at line " << lineNo << " in " << fname << std::endl;
+      std::cerr << "Unexpected error reading TLE line 2 at line " << lineNo
+                << " in " << fname << std::endl;
       return tles;
     }
 
-    tles.emplace_back(name.substr(0,22), line1.substr(0,69), line2.substr(0,69));
+    tles.emplace_back(name.substr(0, 22), line1.substr(0, 69),
+                      line2.substr(0, 69));
     name.clear();
   }
 
   return tles;
 }
 
-static bool isURL(const std::string &str) { return false; }
-static bool isFile(const std::string &str) { return false; }
+static bool tryParseURL(const std::string &str) { return false; }
+static bool tryParseFile(const std::string &str) { return false; }
 
 // Update the database of TLEs.
 static void update(const char *sourceFile, const char *dbPath) {
   // Open database.
   // TODO
-  
+
   // Parse the source file (one entry per line).
   std::string line;
   std::ifstream fh(sourceFile);
   size_t lineNumber = 0;
   while (std::getline(fh, line)) {
     ++lineNumber;
-    // Trim white space.
+    // Trim white space from both ends.
     size_t st, en;
     if ((st = line.find_first_not_of(" \t\r\n")) == std::string::npos ||
-        (en = line.find_last_not_of(" \t\r\n")) == std::string::npos)
+        (en = line.find_last_not_of("# \t\r\n")) == std::string::npos)
       continue;
+
     // If a comment line, ignore.
     if (line[st] == '#') continue;
-    
+
     // Reject empty lines.
-    if (en  - st == 0)
-      continue;
+    if (en - st == 0) continue;
+
+    // Trim comments and any spaces from the end.
+    auto comments = line.find_first_of("# \t\r\n", st);
+    if (comments != std::string::npos) en = comments;
 
     // Get the trimmed string.
-    auto str = line.substr(st, en);
+    auto str = line.substr(st, en - st);
 
-    // If URL download the TLEs.
-    if (isURL(str)) {
-    }
-    else if (isFile(str)) {
-    }
-    else {
-      std::cerr << "[-] Unknown entry in " << sourceFile << " Line " << lineNumber << std::endl;
+    // Parse the contents at the url or in the file.
+    if (!tryParseFile(str) && !tryParseURL(str)) {
+      std::cerr << "[-] Unknown entry in " << sourceFile << " Line "
+                << lineNumber << std::endl;
       continue;
     }
   }
@@ -118,16 +122,28 @@ int main(int argc, char **argv) {
   int opt;
   while ((opt = getopt_long(argc, argv, "ha:x:y:u:d:", opts, nullptr)) > 0) {
     switch (opt) {
-      case 'h': usage(argv[0]); break;
-      case 'a': alt = std::stod(optarg); break;
-      case 'x': lat = std::stod(optarg); break;
-      case 'y': lon = std::stod(optarg); break;
-      case 'u': sourceFile = optarg; break;
-      case 'd': dbFile = optarg; break;
+      case 'h':
+        usage(argv[0]);
+        break;
+      case 'a':
+        alt = std::stod(optarg);
+        break;
+      case 'x':
+        lat = std::stod(optarg);
+        break;
+      case 'y':
+        lon = std::stod(optarg);
+        break;
+      case 'u':
+        sourceFile = optarg;
+        break;
+      case 'd':
+        dbFile = optarg;
+        break;
       default: {
-         std::cerr <<  "[-] Unknown command line option." << std::endl;
-         exit(EXIT_FAILURE);
-         break;
+        std::cerr << "[-] Unknown command line option." << std::endl;
+        exit(EXIT_FAILURE);
+        break;
       }
     }
   }
@@ -135,14 +151,14 @@ int main(int argc, char **argv) {
   // If a source file is specified, then update the existing database.
   update(sourceFile, dbFile);
 
-  // Build the observer (user's position)  
+  // Build the observer (user's position)
   auto me = Observer(37.584, -122.366, 0.0);
 
   // Use the current datetime.
   auto now = DateTime(2018, 1, 1, 1, 1, 0);
 
   // The positional arguments are the TLE source files or URLs.
-  for (int i=optind; i<argc; ++i) {
+  for (int i = optind; i < argc; ++i) {
     const char *fname = argv[i];
     auto tles = readTLEs(fname);
     for (const auto &tle : tles) {
