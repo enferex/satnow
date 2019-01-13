@@ -16,5 +16,5 @@ link_directories(${CMAKE_BINARY_DIR}/third-party/sgp4/src/sgp4_download-build/li
 
 add_executable (satnow main.cc)
 
-target_link_libraries(satnow sgp4 curl)
+target_link_libraries(satnow sgp4 curl sqlite3)
 add_dependencies(satnow sgp4_download)
