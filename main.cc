@@ -27,17 +27,20 @@ static const struct option opts[] = {
     {"lon", required_argument, nullptr, 'y'},
     {"update", required_argument, nullptr, 'u'},
     {"db", required_argument, nullptr, 'd'},
+    {"verbose", no_argument, nullptr, 'v'},
     {"help", no_argument, nullptr, 'h'}};
 
 [[noreturn]] static void usage(const char *execname) {
   std::cout << "Usage: " << execname
-            << " --lat=val --lon=val [--alt=val --update=file --db=file]"
+            << " --lat=val --lon=val [--help --verbose --alt=val --update=file --db=file]"
             << std::endl
             << "  --lat=<latitude in degrees>" << std::endl
             << "  --lon=<longitude in degrees>" << std::endl
             << "  --alt=<altitude in meters>" << std::endl
             << "  --db=<path to database> (default: " << DEFAULT_DB_PATH << ')'
             << std::endl
+            << "  --help/-h:    This help message." << std::endl
+            << "  --verbose/-v: Output additional data (for debugging)." << std::endl
             << "  --update=<sources>  " << std::endl
             << "    Where 'sources' is a text file containing a " << std::endl
             << "    list of URLs that point to a TLE .txt file. " << std::endl
@@ -71,8 +74,12 @@ static std::vector<Tle> readTLEs(const std::string &fname, FILE *fp) {
     ++lineNo;
     if (std::isalpha(line1[0]) || line1.size() <= 24) name = line1;
     // Trim trailing whitespace from name.
-    for (int i = name.size() - 1; i >= 0; --i)
-      if (isspace(name[i])) name[i] = '\0';
+    auto en = name.find_last_not_of(" \t\r\n");
+    if (en != std::string::npos)
+      name = name.substr(0, en+1);
+    // Celestrak and wikipedia say that names are 24 bytes, libsgp4 says 22.
+    if (name.size() > 22)
+      name = name.substr(0, 22);
     ++lineNo;
     if (!readLine(fp, line1)) {
       std::cerr << "Unexpected error reading TLE line 1 at line " << lineNo
@@ -86,9 +93,7 @@ static std::vector<Tle> readTLEs(const std::string &fname, FILE *fp) {
       return tles;
     }
 
-    // Celestrak and wikipedia say that names are 24 bytes, libsgp4 says 22.
-    tles.emplace_back(name.substr(0, 22), line1.substr(0, 69),
-                      line2.substr(0, 69));
+    tles.emplace_back(name, line1.substr(0, 69), line2.substr(0, 69));
     name.clear();
   }
 
@@ -139,7 +144,7 @@ static bool tryParseURL(const std::string &fname, std::vector<Tle> &tles) {
 }
 
 // Update the database of TLEs.
-static void update(const char *sourceFile, sqlite3 *sql) {
+static void update(const char *sourceFile, sqlite3 *sql, bool verbose) {
   assert(sourceFile && sql && "Invalid input to update.");
 
   // Parse the source file (one entry per line).
@@ -183,18 +188,38 @@ static void update(const char *sourceFile, sqlite3 *sql) {
   size_t count = 0;
   for (const auto &tle : results) {
     std::string q = "INSERT OR REPLACE INTO tle (name, norad, line1, line2) ";
-    q += "VALUES (" + tle.Name() + ", " + std::to_string(tle.NoradNumber()) +
-         ", " + tle.Line1() + ", " + tle.Line2() + ");";
+    q += "VALUES (\'" + tle.Name() + "\', " + std::to_string(tle.NoradNumber()) +
+         ", \"" + tle.Line1() + "\", \"" + tle.Line2() + "\");";
     const int err = sqlite3_exec(sql, q.c_str(), nullptr, nullptr, nullptr);
-    std::cout << "[+] Refreshing [" << (++count) << '/' << results.size()
-              << "]: " << std::to_string(tle.NoradNumber()) << " ("
-              << tle.Name() << ") [" << (err ? "Good" : "Failed") << ']'
-              << std::endl;
+    if (verbose)
+      std::cout << "[+] Refreshing [" << (++count) << '/' << results.size()
+                << "]: " << std::to_string(tle.NoradNumber()) << " ("
+                << tle.Name() << ") [" << (!err ? "Good" : "Failed") << ']'
+                << std::endl;
   }
 }
 
 static std::vector<Tle> fetchTLEs(sqlite3 *sql) {
   std::vector<Tle> tles;
+  const char *q = "SELECT name, line1, line2 FROM tle;";
+  auto cb = [](void *tleptr, int nCols, char **row, char **colName) {
+    auto tles = static_cast<std::vector<Tle>*>(tleptr);
+    if (nCols != 3) return SQLITE_OK;
+    std::string name(row[0]);
+    std::string line1(row[1]);
+    std::string line2(row[2]);
+    if (name.size())
+      tles->emplace_back(name, line1, line2);
+    else
+      tles->emplace_back(name, line1, line2);
+    return SQLITE_OK;
+  };
+
+  if (sqlite3_exec(sql, q, cb, &tles, nullptr)) {
+    std::cerr << "[-] Error querying database: " << sqlite3_errmsg(sql) << std::endl;
+    return tles;
+  }
+
   return tles;
 }
 
@@ -205,7 +230,7 @@ static sqlite3 *initDatabase(const char *dbFile) {
   const char *q =
       "CREATE TABLE IF NOT EXISTS tle "
       "(timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
-      "norad PRIMARY_KEY INT, "
+      "norad INT PRIMARY KEY, "
       "name TEXT, line1 TEXT, line2 TEXT)";
 
   if (sqlite3_exec(sql, q, nullptr, nullptr, nullptr)) return sql;
@@ -215,9 +240,10 @@ static sqlite3 *initDatabase(const char *dbFile) {
 
 int main(int argc, char **argv) {
   double alt = 0.0, lat = 0.0, lon = 0.0;
+  bool verbose = false;
   const char *sourceFile = nullptr, *dbFile = DEFAULT_DB_PATH;
   int opt;
-  while ((opt = getopt_long(argc, argv, "ha:x:y:u:d:", opts, nullptr)) > 0) {
+  while ((opt = getopt_long(argc, argv, "vha:x:y:u:d:", opts, nullptr)) > 0) {
     switch (opt) {
       case 'h':
         usage(argv[0]);
@@ -236,6 +262,9 @@ int main(int argc, char **argv) {
         break;
       case 'd':
         dbFile = optarg;
+        break;
+      case 'v':
+        verbose = true;
         break;
       default: {
         std::cerr << "[-] Unknown command line option." << std::endl;
@@ -261,6 +290,7 @@ int main(int argc, char **argv) {
               << std::endl;
     return EXIT_FAILURE;
   }
+  std::cout << "[+] Using database: " << dbFile << std::endl;
   sqlite3 *sql = initDatabase(dbFile);
   if (sqlite3_errcode(sql)) {
     std::cerr << "[-] Error opening database '" << dbFile
@@ -269,7 +299,7 @@ int main(int argc, char **argv) {
   }
 
   // If a source file is specified, then update the existing database.
-  if (sourceFile) update(sourceFile, sql);
+  if (sourceFile) update(sourceFile, sql, verbose);
 
   // Get the TLEs.
   std::vector<Tle> tles = fetchTLEs(sql);
@@ -280,13 +310,15 @@ int main(int argc, char **argv) {
   // Use the current datetime.
   auto now = DateTime::Now(true);
 
-  for (int i = optind; i < argc; ++i) {
-    for (const auto &tle : tles) {
-      const auto model = SGP4(tle);
-      const auto pos = model.FindPosition(now);
-      const auto la = me.GetLookAngle(pos);
-      std::cout << "[+] Look angle: (" << tle.Name() << ") " << la << std::endl;
-    }
+  // Compute and report the look angles.
+  size_t count = 0;
+  const size_t nTles = tles.size();
+  for (const auto &tle : tles) {
+    const auto model = SGP4(tle);
+    const auto pos = model.FindPosition(now);
+    const auto la = me.GetLookAngle(pos);
+    std::cout << "[+] [ " << ++count << '/' << nTles
+              << "] Look angle: (" << tle.Name() << ") " << la << std::endl;
   }
 
   // Cleanup.
