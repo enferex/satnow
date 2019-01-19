@@ -1,6 +1,5 @@
 #include <curl/curl.h>
 #include <getopt.h>
-#include <sqlite3.h>
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -16,16 +15,15 @@
 #include <menu.h>
 #include <ncurses.h>
 #endif
-
 #include <CoordTopocentric.h>
 #include <Observer.h>
 #include <SGP4.h>
+#include "db.hh"
 
 // Resources:
 // https://www.celestrak.com/NORAD/documentation/tle-fmt.php
 // https://en.wikipedia.org/wiki/Two-line_element_set
 
-#define DEFAULT_DB_PATH "./.satnow.sql3"
 #define VER "0.1b"
 
 using SatLookAngle = std::pair<Tle, CoordTopocentric>;
@@ -166,8 +164,8 @@ static bool tryParseURL(const std::string &fname, std::vector<Tle> &tles) {
 }
 
 // Update the database of TLEs.
-static void update(const char *sourceFile, sqlite3 *sql, bool verbose) {
-  assert(sourceFile && sql && "Invalid input to update.");
+static void update(const char *sourceFile, DB &db, bool verbose) {
+  assert(sourceFile && db.ok() && "Invalid input to update.");
 
   // Parse the source file (one entry per line).
   std::string line;
@@ -209,57 +207,13 @@ static void update(const char *sourceFile, sqlite3 *sql, bool verbose) {
   // Update the database.
   size_t count = 0;
   for (const auto &tle : results) {
-    std::string q = "INSERT OR REPLACE INTO tle (name, norad, line1, line2) ";
-    q += "VALUES (\'" + tle.Name() + "\', " +
-         std::to_string(tle.NoradNumber()) + ", \"" + tle.Line1() + "\", \"" +
-         tle.Line2() + "\");";
-    const int err = sqlite3_exec(sql, q.c_str(), nullptr, nullptr, nullptr);
+    db.update(tle);
     if (verbose)
       std::cout << "[+] Refreshing [" << (++count) << '/' << results.size()
                 << "]: " << std::to_string(tle.NoradNumber()) << " ("
-                << tle.Name() << ") [" << (!err ? "Good" : "Failed") << ']'
+                << tle.Name() << ") [" << (db.ok() ? "Good" : "Failed") << ']'
                 << std::endl;
   }
-}
-
-static std::vector<Tle> fetchTLEs(sqlite3 *sql) {
-  std::vector<Tle> tles;
-  const char *q = "SELECT name, line1, line2 FROM tle;";
-  auto cb = [](void *tleptr, int nCols, char **row, char **colName) {
-    auto tles = static_cast<std::vector<Tle> *>(tleptr);
-    if (nCols != 3) return SQLITE_OK;
-    std::string name(row[0]);
-    std::string line1(row[1]);
-    std::string line2(row[2]);
-    if (name.size())
-      tles->emplace_back(name, line1, line2);
-    else
-      tles->emplace_back(name, line1, line2);
-    return SQLITE_OK;
-  };
-
-  if (sqlite3_exec(sql, q, cb, &tles, nullptr)) {
-    std::cerr << "[-] Error querying database: " << sqlite3_errmsg(sql)
-              << std::endl;
-    return tles;
-  }
-
-  return tles;
-}
-
-static sqlite3 *initDatabase(const char *dbFile) {
-  sqlite3 *sql;
-  if (sqlite3_open(dbFile, &sql)) return sql;
-
-  const char *q =
-      "CREATE TABLE IF NOT EXISTS tle "
-      "(timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
-      "norad INT PRIMARY KEY, "
-      "name TEXT, line1 TEXT, line2 TEXT)";
-
-  if (sqlite3_exec(sql, q, nullptr, nullptr, nullptr)) return sql;
-
-  return sql;
 }
 
 static void displayResults(std::vector<SatLookAngle> &TLEsAndLAs) {
@@ -275,10 +229,9 @@ static void displayResults(std::vector<SatLookAngle> &TLEsAndLAs) {
 
 static std::vector<SatLookAngle> getSatellitesAndLocations(double lat,
                                                            double lon,
-                                                           double alt,
-                                                           sqlite3 *sql) {
+                                                           double alt, DB &db) {
   // Get the TLEs.
-  std::vector<Tle> tles = fetchTLEs(sql);
+  std::vector<Tle> tles = db.fetchTLEs();
 
   // Build the observer (user's) position.
   auto me = Observer(lat, lon, alt);
@@ -344,12 +297,12 @@ static void runGUI(std::vector<SatLookAngle> &TLEsAndLAs) {
   int cols = std::min(COLS, 79);
   auto win = newwin(rows, cols, 0, 0);
   set_menu_win(menu, win);
-  set_menu_sub(menu, derwin(win, rows-2, cols-2, 2, 2));
+  set_menu_sub(menu, derwin(win, rows - 2, cols - 2, 2, 2));
   box(win, '|', '=');
 
   // Add column names.
   mvwprintw(win, 1, 4, "%s", colNames.c_str());
-  mvwprintw(win, 0, (cols/2-9), "%s", "}-- satnow " VER " --{");
+  mvwprintw(win, 0, (cols / 2 - 9), "%s", "}-- satnow " VER " --{");
 
   // Display.
   refresh();
@@ -442,24 +395,23 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
   std::cout << "[+] Using database: " << dbFile << std::endl;
-  sqlite3 *sql = initDatabase(dbFile);
-  if (sqlite3_errcode(sql)) {
+
+  DBSQLite db(dbFile);
+  if (!db.ok()) {
     std::cerr << "[-] Error opening database '" << dbFile
-              << "': " << sqlite3_errmsg(sql) << std::endl;
+              << "': " << db.getErrorString() << std::endl;
     return EXIT_FAILURE;
   }
 
   // If a source file is specified, then update the existing database.
-  if (sourceFile) update(sourceFile, sql, verbose);
+  if (sourceFile) update(sourceFile, db, verbose);
 
   // Calculate and display.
-  auto TLEsAndLAs = getSatellitesAndLocations(lat, lon, alt, sql);
+  auto TLEsAndLAs = getSatellitesAndLocations(lat, lon, alt, db);
   if (gui)
     runGUI(TLEsAndLAs);
   else
     displayResults(TLEsAndLAs);
 
-  // Cleanup.
-  sqlite3_close(sql);
   return 0;
 }
