@@ -13,13 +13,8 @@
 #include <string>
 #include <vector>
 #if HAVE_GUI
-<<<<<<< HEAD
-#include <ncurses.h>
-#include <menu.h>
-=======
 #include <menu.h>
 #include <ncurses.h>
->>>>>>> fix
 #endif
 
 #include <CoordTopocentric.h>
@@ -48,12 +43,7 @@ static const struct option opts[] = {
     {"help", no_argument, nullptr, 'h'}};
 
 [[noreturn]] static void usage(const char *execname) {
-<<<<<<< HEAD
-  std::cout << "Usage: " << execname
-            << " --lat=val --lon=val "
-=======
   std::cout << "Usage: " << execname << " --lat=val --lon=val "
->>>>>>> fix
             << "[--help --verbose --alt=val --update=file --db=file "
 #if HAVE_GUI
             << " --gui"
@@ -65,12 +55,8 @@ static const struct option opts[] = {
             << "  --db=<path to database> (default: " << DEFAULT_DB_PATH << ')'
             << std::endl
             << "  --help/-h:    This help message." << std::endl
-<<<<<<< HEAD
-            << "  --verbose/-v: Output additional data (for debugging)." << std::endl
-=======
             << "  --verbose/-v: Output additional data (for debugging)."
             << std::endl
->>>>>>> fix
 #if HAVE_GUI
             << "  --gui: Enable curses/gui mode." << std::endl
 #endif
@@ -282,15 +268,10 @@ static void displayResults(std::vector<SatLookAngle> &TLEsAndLAs) {
   }
 }
 
-<<<<<<< HEAD
-static std::vector<SatLookAngle> getSatellitesAndLocations(
-    double lat, double lon, double alt, sqlite3 *sql) {
-=======
 static std::vector<SatLookAngle> getSatellitesAndLocations(double lat,
                                                            double lon,
                                                            double alt,
                                                            sqlite3 *sql) {
->>>>>>> fix
   // Get the TLEs.
   std::vector<Tle> tles = fetchTLEs(sql);
 
