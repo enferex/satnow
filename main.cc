@@ -1,11 +1,13 @@
 #include <curl/curl.h>
 #include <getopt.h>
 #include <sqlite3.h>
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 #include <iterator>
 #include <string>
 #include <vector>
@@ -238,6 +240,21 @@ static sqlite3 *initDatabase(const char *dbFile) {
   return sql;
 }
 
+using SatLookAngle = std::pair<Tle, CoordTopocentric>;
+
+static void displayResults(std::vector<SatLookAngle> &TLEsAndLAs) {
+  std::sort(TLEsAndLAs.begin(), TLEsAndLAs.end(), [](const SatLookAngle &a,
+                                                     const SatLookAngle &b) { return a.second.range < b.second.range; });
+  size_t count = 0;
+  const size_t nTles = TLEsAndLAs.size();
+  for (const auto &TL : TLEsAndLAs) {
+    const auto &tle = TL.first;
+    const auto &la = TL.second;
+    std::cout << "[+] [" << (++count) << '/' << nTles << "] "
+              << '(' << tle.Name() << "): LookAngle: " << la << std::endl;
+  }
+}
+
 int main(int argc, char **argv) {
   double alt = 0.0, lat = 0.0, lon = 0.0;
   bool verbose = false;
@@ -304,22 +321,22 @@ int main(int argc, char **argv) {
   // Get the TLEs.
   std::vector<Tle> tles = fetchTLEs(sql);
 
-  // Build the observer (user's position)
+  // Build the observer (user's) position.
   auto me = Observer(lat, lon, alt);
 
   // Use the current datetime.
   auto now = DateTime::Now(true);
 
   // Compute and report the look angles.
-  size_t count = 0;
-  const size_t nTles = tles.size();
+  std::vector<SatLookAngle> TLEsAndLAs;
   for (const auto &tle : tles) {
     const auto model = SGP4(tle);
     const auto pos = model.FindPosition(now);
     const auto la = me.GetLookAngle(pos);
-    std::cout << "[+] [ " << ++count << '/' << nTles
-              << "] Look angle: (" << tle.Name() << ") " << la << std::endl;
+    TLEsAndLAs.emplace_back(tle, la);
   }
+
+  displayResults(TLEsAndLAs);
 
   // Cleanup.
   sqlite3_close(sql);
