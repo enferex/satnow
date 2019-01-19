@@ -293,14 +293,15 @@ static void runGUI(std::vector<SatLookAngle> &TLEsAndLAs) {
   set_menu_mark(menu, "->");
 
   // Create a window to decorate the menu with.
-  int rows = std::min(LINES, 30);
-  int cols = std::min(COLS, 79);
+  const int rows = std::min(LINES, 79);
+  const int cols = std::min(COLS, 79);
   auto win = newwin(rows, cols, 0, 0);
+  set_menu_format(menu, std::min(TLEsAndLAs.size(), (size_t)rows-3), 1);
   set_menu_win(menu, win);
-  set_menu_sub(menu, derwin(win, rows - 2, cols - 2, 2, 2));
+  set_menu_sub(menu, derwin(win, rows-2, cols-2, 2, 2));
   box(win, '|', '=');
 
-  // Add column names.
+  // Add column names and title.
   mvwprintw(win, 1, 4, "%s", colNames.c_str());
   mvwprintw(win, 0, (cols / 2 - 9), "%s", "}-- satnow " VER " --{");
 
