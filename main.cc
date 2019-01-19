@@ -6,15 +6,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 #include <iterator>
-#include <string>
 #include <sstream>
+#include <string>
 #include <vector>
 #if HAVE_GUI
-#include <ncurses.h>
 #include <menu.h>
+#include <ncurses.h>
 #endif
 
 #include <CoordTopocentric.h>
@@ -43,8 +43,7 @@ static const struct option opts[] = {
     {"help", no_argument, nullptr, 'h'}};
 
 [[noreturn]] static void usage(const char *execname) {
-  std::cout << "Usage: " << execname
-            << " --lat=val --lon=val "
+  std::cout << "Usage: " << execname << " --lat=val --lon=val "
             << "[--help --verbose --alt=val --update=file --db=file "
 #if HAVE_GUI
             << " --gui"
@@ -56,7 +55,8 @@ static const struct option opts[] = {
             << "  --db=<path to database> (default: " << DEFAULT_DB_PATH << ')'
             << std::endl
             << "  --help/-h:    This help message." << std::endl
-            << "  --verbose/-v: Output additional data (for debugging)." << std::endl
+            << "  --verbose/-v: Output additional data (for debugging)."
+            << std::endl
 #if HAVE_GUI
             << "  --gui: Enable curses/gui mode." << std::endl
 #endif
@@ -94,11 +94,9 @@ static std::vector<Tle> readTLEs(const std::string &fname, FILE *fp) {
     if (std::isalpha(line1[0]) || line1.size() <= 24) name = line1;
     // Trim trailing whitespace from name.
     auto en = name.find_last_not_of(" \t\r\n");
-    if (en != std::string::npos)
-      name = name.substr(0, en+1);
+    if (en != std::string::npos) name = name.substr(0, en + 1);
     // Celestrak and wikipedia say that names are 24 bytes, libsgp4 says 22.
-    if (name.size() > 22)
-      name = name.substr(0, 22);
+    if (name.size() > 22) name = name.substr(0, 22);
     ++lineNo;
     if (!readLine(fp, line1)) {
       std::cerr << "Unexpected error reading TLE line 1 at line " << lineNo
@@ -207,8 +205,9 @@ static void update(const char *sourceFile, sqlite3 *sql, bool verbose) {
   size_t count = 0;
   for (const auto &tle : results) {
     std::string q = "INSERT OR REPLACE INTO tle (name, norad, line1, line2) ";
-    q += "VALUES (\'" + tle.Name() + "\', " + std::to_string(tle.NoradNumber()) +
-         ", \"" + tle.Line1() + "\", \"" + tle.Line2() + "\");";
+    q += "VALUES (\'" + tle.Name() + "\', " +
+         std::to_string(tle.NoradNumber()) + ", \"" + tle.Line1() + "\", \"" +
+         tle.Line2() + "\");";
     const int err = sqlite3_exec(sql, q.c_str(), nullptr, nullptr, nullptr);
     if (verbose)
       std::cout << "[+] Refreshing [" << (++count) << '/' << results.size()
@@ -222,7 +221,7 @@ static std::vector<Tle> fetchTLEs(sqlite3 *sql) {
   std::vector<Tle> tles;
   const char *q = "SELECT name, line1, line2 FROM tle;";
   auto cb = [](void *tleptr, int nCols, char **row, char **colName) {
-    auto tles = static_cast<std::vector<Tle>*>(tleptr);
+    auto tles = static_cast<std::vector<Tle> *>(tleptr);
     if (nCols != 3) return SQLITE_OK;
     std::string name(row[0]);
     std::string line1(row[1]);
@@ -235,7 +234,8 @@ static std::vector<Tle> fetchTLEs(sqlite3 *sql) {
   };
 
   if (sqlite3_exec(sql, q, cb, &tles, nullptr)) {
-    std::cerr << "[-] Error querying database: " << sqlite3_errmsg(sql) << std::endl;
+    std::cerr << "[-] Error querying database: " << sqlite3_errmsg(sql)
+              << std::endl;
     return tles;
   }
 
@@ -263,13 +263,15 @@ static void displayResults(std::vector<SatLookAngle> &TLEsAndLAs) {
   for (const auto &TL : TLEsAndLAs) {
     const auto &tle = TL.first;
     const auto &la = TL.second;
-    std::cout << "[+] [" << (++count) << '/' << nTles << "] "
-              << '(' << tle.Name() << "): LookAngle: " << la << std::endl;
+    std::cout << "[+] [" << (++count) << '/' << nTles << "] " << '('
+              << tle.Name() << "): LookAngle: " << la << std::endl;
   }
 }
 
-static std::vector<SatLookAngle> getSatellitesAndLocations(
-    double lat, double lon, double alt, sqlite3 *sql) {
+static std::vector<SatLookAngle> getSatellitesAndLocations(double lat,
+                                                           double lon,
+                                                           double alt,
+                                                           sqlite3 *sql) {
   // Get the TLEs.
   std::vector<Tle> tles = fetchTLEs(sql);
 
@@ -289,9 +291,10 @@ static std::vector<SatLookAngle> getSatellitesAndLocations(
   }
 
   // Sort by increasing range.
-  std::sort(TLEsAndLAs.begin(), TLEsAndLAs.end(), [](const SatLookAngle &a,
-                                                     const SatLookAngle &b) {
-      return a.second.range < b.second.range; });
+  std::sort(TLEsAndLAs.begin(), TLEsAndLAs.end(),
+            [](const SatLookAngle &a, const SatLookAngle &b) {
+              return a.second.range < b.second.range;
+            });
 
   return TLEsAndLAs;
 }
@@ -305,21 +308,26 @@ static void runGUI(std::vector<SatLookAngle> &TLEsAndLAs) {
   keypad(stdscr, TRUE);
 
   // Build the menu and have a place to store the strings.
-  auto items = new ITEM*[TLEsAndLAs.size() + 2];
-  auto itemStrs = new std::string[TLEsAndLAs.size()+1];
+  auto items = new ITEM *[TLEsAndLAs.size() + 2];
+  auto itemStrs = new std::string[TLEsAndLAs.size() + 1];
   items[TLEsAndLAs.size() + 1] = nullptr;
 
   // Column names.
   std::stringstream ss;
-  ss << std::left << std::setw(10) << "ID" << std::setw(10) << "NAME" << std::setw(10) << "AZIMUTH" << std::setw(15) << "ELEVATION" << std::setw(15) << "RANGE (KM)";
+  ss << std::left << std::setw(10) << "ID" << std::setw(25) << "NAME"
+     << std::setw(10) << "AZIMUTH" << std::setw(10) << "ELEVATION"
+     << std::setw(10) << "RANGE (KM)";
   itemStrs[0] = ss.str();
   items[0] = new_item(itemStrs[0].c_str(), nullptr);
 
-  for (size_t i=1; i<TLEsAndLAs.size(); ++i) {
+  for (size_t i = 1; i < TLEsAndLAs.size(); ++i) {
     const auto &tle = TLEsAndLAs[i].first;
     const auto &la = TLEsAndLAs[i].second;
     std::stringstream ss;
-    ss << std::left << std::setw(10) << std::to_string(i) << std::setw(10) << tle.Name() << std::setw(10) << std::to_string(la.azimuth) << std::setw(15) << std::to_string(la.elevation) << std::setw(15) << std::to_string(la.range);
+    ss << std::left << std::setw(10) << std::to_string(i) << std::setw(25)
+       << tle.Name() << std::setw(10) << std::to_string(la.azimuth)
+       << std::setw(10) << std::to_string(la.elevation) << std::setw(10)
+       << std::to_string(la.range);
     itemStrs[i] = ss.str();
     items[i] = new_item(itemStrs[i].c_str(), itemStrs[i].c_str());
   }
@@ -340,21 +348,24 @@ static void runGUI(std::vector<SatLookAngle> &TLEsAndLAs) {
   int c;
   while ((c = getch()) != 'q') {
     switch (c) {
-      case KEY_DOWN: menu_driver(menu, REQ_DOWN_ITEM); break;
-      case KEY_UP: menu_driver(menu, REQ_UP_ITEM); break;
+      case KEY_DOWN:
+        menu_driver(menu, REQ_DOWN_ITEM);
+        break;
+      case KEY_UP:
+        menu_driver(menu, REQ_UP_ITEM);
+        break;
     }
     refresh();
     wrefresh(win);
   }
 
   // Cleanup.
-  for (size_t i=0; i<TLEsAndLAs.size()+1; ++i)
-    free_item(items[i]);
-  delete [] items;
-  delete [] itemStrs;
+  for (size_t i = 0; i < TLEsAndLAs.size() + 1; ++i) free_item(items[i]);
+  delete[] items;
+  delete[] itemStrs;
   free_menu(menu);
   endwin();
-#endif // HAVE_GUI
+#endif  // HAVE_GUI
 }
 
 int main(int argc, char **argv) {
