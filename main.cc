@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <iterator>
 #include <string>
+#include <sstream>
 #include <vector>
 #if HAVE_GUI
 #include <ncurses.h>
@@ -303,44 +304,32 @@ static void runGUI(std::vector<SatLookAngle> &TLEsAndLAs) {
   noecho();
   keypad(stdscr, TRUE);
 
-  // Build the menu and have a place to store the strings (row_xx arrays).
-  auto items = new ITEM*[TLEsAndLAs.size() * 5 + 2];
-  items[TLEsAndLAs.size()*5] = nullptr;
-  auto rowId = new std::string[TLEsAndLAs.size()];
-  auto rowName = new std::string[TLEsAndLAs.size()];
-  auto rowAz = new std::string[TLEsAndLAs.size()];
-  auto rowElev = new std::string[TLEsAndLAs.size()];
-  auto rowRange = new std::string[TLEsAndLAs.size()];
+  // Build the menu and have a place to store the strings.
+  auto items = new ITEM*[TLEsAndLAs.size() + 2];
+  auto itemStrs = new std::string[TLEsAndLAs.size()+1];
+  items[TLEsAndLAs.size() + 1] = nullptr;
 
-  items[0] = new_item("ID", nullptr);
-  items[1] = new_item("NAME", nullptr);
-  items[2] = new_item("AZIMUTH", nullptr);
-  items[3] = new_item("ELEVATION", nullptr);
-  items[4] = new_item("RANGE (KM)", nullptr);
+  // Column names.
+  std::stringstream ss;
+  ss << std::left << std::setw(10) << "ID" << std::setw(10) << "NAME" << std::setw(10) << "AZIMUTH" << std::setw(15) << "ELEVATION" << std::setw(15) << "RANGE (KM)";
+  itemStrs[0] = ss.str();
+  items[0] = new_item(itemStrs[0].c_str(), nullptr);
+
   for (size_t i=1; i<TLEsAndLAs.size(); ++i) {
     const auto &tle = TLEsAndLAs[i].first;
     const auto &la = TLEsAndLAs[i].second;
-    rowId[i] = std::to_string(i);
-    rowName[i] = tle.Name();
-    rowAz[i] = std::to_string(la.azimuth);
-    rowElev[i] = std::to_string(la.elevation);
-    rowRange[i] = std::to_string(la.range);
-    items[(i*5)]   = new_item(rowId[i].c_str(),    nullptr);
-    items[(i*5)+1] = new_item(rowName[i].c_str(),  nullptr);
-    items[(i*5)+2] = new_item(rowAz[i].c_str(),    nullptr);
-    items[(i*5)+3] = new_item(rowElev[i].c_str(),   nullptr);
-    items[(i*5)+4] = new_item(rowRange[i].c_str(), nullptr);
+    std::stringstream ss;
+    ss << std::left << std::setw(10) << std::to_string(i) << std::setw(10) << tle.Name() << std::setw(10) << std::to_string(la.azimuth) << std::setw(15) << std::to_string(la.elevation) << std::setw(15) << std::to_string(la.range);
+    itemStrs[i] = ss.str();
+    items[i] = new_item(itemStrs[i].c_str(), itemStrs[i].c_str());
   }
   auto menu = new_menu(items);
-
-  // Setup the menu format (columns).
   set_menu_mark(menu, "->");
-  set_menu_format(menu, TLEsAndLAs.size(), 5); // Number, Name, Az, Ele, Range.
 
   // Create a window to decorate the menu with.
-  auto win = newwin(70, 110, 2, 2);
+  auto win = newwin(50, 110, 2, 2);
   set_menu_win(menu, win);
-  set_menu_sub(menu, derwin(win, 60, 100, 2, 2));
+  set_menu_sub(menu, derwin(win, 40, 100, 2, 2));
   box(win, '|', '=');
 
   // Display.
@@ -359,14 +348,10 @@ static void runGUI(std::vector<SatLookAngle> &TLEsAndLAs) {
   }
 
   // Cleanup.
-  for (size_t i=0; i<TLEsAndLAs.size()*5+1; ++i)
+  for (size_t i=0; i<TLEsAndLAs.size()+1; ++i)
     free_item(items[i]);
   delete [] items;
-  delete [] rowId;
-  delete [] rowName;
-  delete [] rowAz;
-  delete [] rowElev;
-  delete [] rowRange;
+  delete [] itemStrs;
   free_menu(menu);
   endwin();
 #endif // HAVE_GUI
