@@ -26,6 +26,7 @@
 // https://en.wikipedia.org/wiki/Two-line_element_set
 
 #define DEFAULT_DB_PATH "./.satnow.sql3"
+#define VER "0.1b"
 
 using SatLookAngle = std::pair<Tle, CoordTopocentric>;
 
