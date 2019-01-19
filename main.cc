@@ -28,6 +28,18 @@
 
 using SatLookAngle = std::pair<Tle, CoordTopocentric>;
 
+class SatLookAngles {
+ private:
+  double _lat, _lon, _alt;
+  std::vector<SatLookAngle> _sats;
+  Observer _me;
+  DateTime _now;
+
+ public:
+  SatLookAngles(double lat, double lon, double alt)
+      : _me(lat, lon, alt), _now(DateTime::Now(true)) {}
+};
+
 // Command line options.
 static const struct option opts[] = {
     {"alt", required_argument, nullptr, 'a'},
@@ -266,7 +278,7 @@ static void runGUI(std::vector<SatLookAngle> &TLEsAndLAs) {
   keypad(stdscr, TRUE);
 
   // Build the menu and have a place to store the strings.
-  auto items = new ITEM *[TLEsAndLAs.size() + 1];
+  auto items = new ITEM *[TLEsAndLAs.size() + 1]();
   auto itemStrs = new std::string[TLEsAndLAs.size()];
   items[TLEsAndLAs.size()] = nullptr;
 
@@ -278,17 +290,21 @@ static void runGUI(std::vector<SatLookAngle> &TLEsAndLAs) {
   std::string colNames = ss.str();
 
   // Populate menu.
-  for (size_t i = 0; i < TLEsAndLAs.size(); ++i) {
-    const auto &tle = TLEsAndLAs[i].first;
-    const auto &la = TLEsAndLAs[i].second;
-    std::stringstream ss;
-    ss << std::left << std::setw(10) << std::to_string(i) << std::setw(25)
-       << tle.Name() << std::setw(12) << std::to_string(la.azimuth)
-       << std::setw(12) << std::to_string(la.elevation) << std::setw(12)
-       << std::to_string(la.range);
-    itemStrs[i] = ss.str();
-    items[i] = new_item(itemStrs[i].c_str(), nullptr);
-  }
+  auto updateMenu = [&] {
+    for (size_t i = 0; i < TLEsAndLAs.size(); ++i) {
+      const auto &tle = TLEsAndLAs[i].first;
+      const auto &la = TLEsAndLAs[i].second;
+      std::stringstream ss;
+      ss << std::left << std::setw(10) << std::to_string(i) << std::setw(25)
+         << tle.Name() << std::setw(12) << std::to_string(la.azimuth)
+         << std::setw(12) << std::to_string(la.elevation) << std::setw(12)
+         << std::to_string(la.range);
+      itemStrs[i] = ss.str();
+      if (items[i]) free_item(items[i]);
+      items[i] = new_item(itemStrs[i].c_str(), nullptr);
+    }
+  };
+  updateMenu();
   auto menu = new_menu(items);
   set_menu_mark(menu, "->");
 
@@ -296,9 +312,9 @@ static void runGUI(std::vector<SatLookAngle> &TLEsAndLAs) {
   const int rows = std::min(LINES, 79);
   const int cols = std::min(COLS, 79);
   auto win = newwin(rows, cols, 0, 0);
-  set_menu_format(menu, std::min(TLEsAndLAs.size(), (size_t)rows-3), 1);
+  set_menu_format(menu, std::min(TLEsAndLAs.size(), (size_t)rows - 3), 1);
   set_menu_win(menu, win);
-  set_menu_sub(menu, derwin(win, rows-2, cols-2, 2, 2));
+  set_menu_sub(menu, derwin(win, rows - 2, cols - 2, 2, 2));
   box(win, '|', '=');
 
   // Add column names and title.
@@ -324,6 +340,9 @@ static void runGUI(std::vector<SatLookAngle> &TLEsAndLAs) {
         break;
       case KEY_PPAGE:
         menu_driver(menu, REQ_SCR_UPAGE);
+        break;
+      case ' ':
+        updateMenu();
         break;
     }
     refresh();
