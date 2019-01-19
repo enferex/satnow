@@ -312,37 +312,43 @@ static void runGUI(std::vector<SatLookAngle> &TLEsAndLAs) {
   keypad(stdscr, TRUE);
 
   // Build the menu and have a place to store the strings.
-  auto items = new ITEM *[TLEsAndLAs.size() + 2];
-  auto itemStrs = new std::string[TLEsAndLAs.size() + 1];
-  items[TLEsAndLAs.size() + 1] = nullptr;
+  auto items = new ITEM *[TLEsAndLAs.size() + 1];
+  auto itemStrs = new std::string[TLEsAndLAs.size()];
+  items[TLEsAndLAs.size()] = nullptr;
 
   // Column names.
   std::stringstream ss;
   ss << std::left << std::setw(10) << "ID" << std::setw(25) << "NAME"
-     << std::setw(10) << "AZIMUTH" << std::setw(10) << "ELEVATION"
-     << std::setw(10) << "RANGE (KM)";
-  itemStrs[0] = ss.str();
-  items[0] = new_item(itemStrs[0].c_str(), nullptr);
+     << std::setw(12) << "AZIMUTH" << std::setw(12) << "ELEVATION"
+     << std::setw(12) << "RANGE (KM)";
+  std::string colNames = ss.str();
 
-  for (size_t i = 1; i < TLEsAndLAs.size(); ++i) {
+  // Populate menu.
+  for (size_t i = 0; i < TLEsAndLAs.size(); ++i) {
     const auto &tle = TLEsAndLAs[i].first;
     const auto &la = TLEsAndLAs[i].second;
     std::stringstream ss;
     ss << std::left << std::setw(10) << std::to_string(i) << std::setw(25)
-       << tle.Name() << std::setw(10) << std::to_string(la.azimuth)
-       << std::setw(10) << std::to_string(la.elevation) << std::setw(10)
+       << tle.Name() << std::setw(12) << std::to_string(la.azimuth)
+       << std::setw(12) << std::to_string(la.elevation) << std::setw(12)
        << std::to_string(la.range);
     itemStrs[i] = ss.str();
-    items[i] = new_item(itemStrs[i].c_str(), itemStrs[i].c_str());
+    items[i] = new_item(itemStrs[i].c_str(), nullptr);
   }
   auto menu = new_menu(items);
   set_menu_mark(menu, "->");
 
   // Create a window to decorate the menu with.
-  auto win = newwin(50, 110, 2, 2);
+  int rows = std::min(LINES, 30);
+  int cols = std::min(COLS, 79);
+  auto win = newwin(rows, cols, 0, 0);
   set_menu_win(menu, win);
-  set_menu_sub(menu, derwin(win, 40, 100, 2, 2));
+  set_menu_sub(menu, derwin(win, rows-2, cols-2, 2, 2));
   box(win, '|', '=');
+
+  // Add column names.
+  mvwprintw(win, 1, 4, "%s", colNames.c_str());
+  mvwprintw(win, 0, (cols/2-9), "%s", "}-- satnow " VER " --{");
 
   // Display.
   refresh();
@@ -357,6 +363,12 @@ static void runGUI(std::vector<SatLookAngle> &TLEsAndLAs) {
         break;
       case KEY_UP:
         menu_driver(menu, REQ_UP_ITEM);
+        break;
+      case KEY_NPAGE:
+        menu_driver(menu, REQ_SCR_DPAGE);
+        break;
+      case KEY_PPAGE:
+        menu_driver(menu, REQ_SCR_UPAGE);
         break;
     }
     refresh();
