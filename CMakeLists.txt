@@ -6,6 +6,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++14 -Wall -pedantic")
 include(ExternalProject)
 ExternalProject_Add(sgp4_download
   GIT_REPOSITORY https://github.com/dnwrnr/sgp4
+  GIT_TAG 6b47861cd47a6e31841260c47a52b579f8cf2fa9
   PREFIX ${CMAKE_BINARY_DIR}/third-party/sgp4
   SOURCE_DIR ${CMAKE_SOURCE_DIR}/third-party/sgp4
   BUILD_COMMAND ${CMAKE_COMMAND} --build . --target sgp4
