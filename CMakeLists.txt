@@ -18,3 +18,10 @@ add_executable (satnow main.cc)
 
 target_link_libraries(satnow sgp4 curl sqlite3)
 add_dependencies(satnow sgp4_download)
+
+find_library(HAVE_CURSES ncurses)
+find_library(HAVE_MENU menu)
+if (HAVE_CURSES AND HAVE_MENU)
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHAVE_GUI")
+  target_link_libraries(satnow ncurses menu)
+endif()

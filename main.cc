@@ -11,6 +11,10 @@
 #include <iterator>
 #include <string>
 #include <vector>
+#if HAVE_GUI
+#include <ncurses.h>
+#include <menu.h>
+#endif
 
 #include <CoordTopocentric.h>
 #include <Observer.h>
@@ -22,6 +26,8 @@
 
 #define DEFAULT_DB_PATH "./.satnow.sql3"
 
+using SatLookAngle = std::pair<Tle, CoordTopocentric>;
+
 // Command line options.
 static const struct option opts[] = {
     {"alt", required_argument, nullptr, 'a'},
@@ -30,12 +36,19 @@ static const struct option opts[] = {
     {"update", required_argument, nullptr, 'u'},
     {"db", required_argument, nullptr, 'd'},
     {"verbose", no_argument, nullptr, 'v'},
+#if HAVE_GUI
+    {"gui", no_argument, nullptr, 'g'},
+#endif
     {"help", no_argument, nullptr, 'h'}};
 
 [[noreturn]] static void usage(const char *execname) {
   std::cout << "Usage: " << execname
-            << " --lat=val --lon=val [--help --verbose --alt=val --update=file --db=file]"
-            << std::endl
+            << " --lat=val --lon=val "
+            << "[--help --verbose --alt=val --update=file --db=file "
+#if HAVE_GUI
+            << " --gui"
+#endif
+            << ']' << std::endl
             << "  --lat=<latitude in degrees>" << std::endl
             << "  --lon=<longitude in degrees>" << std::endl
             << "  --alt=<altitude in meters>" << std::endl
@@ -43,6 +56,9 @@ static const struct option opts[] = {
             << std::endl
             << "  --help/-h:    This help message." << std::endl
             << "  --verbose/-v: Output additional data (for debugging)." << std::endl
+#if HAVE_GUI
+            << "  --gui: Enable curses/gui mode." << std::endl
+#endif
             << "  --update=<sources>  " << std::endl
             << "    Where 'sources' is a text file containing a " << std::endl
             << "    list of URLs that point to a TLE .txt file. " << std::endl
@@ -240,11 +256,7 @@ static sqlite3 *initDatabase(const char *dbFile) {
   return sql;
 }
 
-using SatLookAngle = std::pair<Tle, CoordTopocentric>;
-
 static void displayResults(std::vector<SatLookAngle> &TLEsAndLAs) {
-  std::sort(TLEsAndLAs.begin(), TLEsAndLAs.end(), [](const SatLookAngle &a,
-                                                     const SatLookAngle &b) { return a.second.range < b.second.range; });
   size_t count = 0;
   const size_t nTles = TLEsAndLAs.size();
   for (const auto &TL : TLEsAndLAs) {
@@ -255,18 +267,137 @@ static void displayResults(std::vector<SatLookAngle> &TLEsAndLAs) {
   }
 }
 
+static std::vector<SatLookAngle> getSatellitesAndLocations(
+    double lat, double lon, double alt, sqlite3 *sql) {
+  // Get the TLEs.
+  std::vector<Tle> tles = fetchTLEs(sql);
+
+  // Build the observer (user's) position.
+  auto me = Observer(lat, lon, alt);
+
+  // Use the current datetime.
+  auto now = DateTime::Now(true);
+
+  // Compute and report the look angles.
+  std::vector<SatLookAngle> TLEsAndLAs;
+  for (const auto &tle : tles) {
+    const auto model = SGP4(tle);
+    const auto pos = model.FindPosition(now);
+    const auto la = me.GetLookAngle(pos);
+    TLEsAndLAs.emplace_back(tle, la);
+  }
+
+  // Sort by increasing range.
+  std::sort(TLEsAndLAs.begin(), TLEsAndLAs.end(), [](const SatLookAngle &a,
+                                                     const SatLookAngle &b) {
+      return a.second.range < b.second.range; });
+
+  return TLEsAndLAs;
+}
+
+static void runGUI(std::vector<SatLookAngle> &TLEsAndLAs) {
+#if HAVE_GUI
+  // Init curses.
+  initscr();
+  cbreak();
+  noecho();
+  keypad(stdscr, TRUE);
+
+  // Build the menu and have a place to store the strings (row_xx arrays).
+  auto items = new ITEM*[TLEsAndLAs.size() * 5 + 2];
+  items[TLEsAndLAs.size()*5] = nullptr;
+  auto rowId = new std::string[TLEsAndLAs.size()];
+  auto rowName = new std::string[TLEsAndLAs.size()];
+  auto rowAz = new std::string[TLEsAndLAs.size()];
+  auto rowElev = new std::string[TLEsAndLAs.size()];
+  auto rowRange = new std::string[TLEsAndLAs.size()];
+
+  items[0] = new_item("ID", nullptr);
+  items[1] = new_item("NAME", nullptr);
+  items[2] = new_item("AZIMUTH", nullptr);
+  items[3] = new_item("ELEVATION", nullptr);
+  items[4] = new_item("RANGE (KM)", nullptr);
+  for (size_t i=1; i<TLEsAndLAs.size(); ++i) {
+    const auto &tle = TLEsAndLAs[i].first;
+    const auto &la = TLEsAndLAs[i].second;
+    rowId[i] = std::to_string(i);
+    rowName[i] = tle.Name();
+    rowAz[i] = std::to_string(la.azimuth);
+    rowElev[i] = std::to_string(la.elevation);
+    rowRange[i] = std::to_string(la.range);
+    items[(i*5)]   = new_item(rowId[i].c_str(),    nullptr);
+    items[(i*5)+1] = new_item(rowName[i].c_str(),  nullptr);
+    items[(i*5)+2] = new_item(rowAz[i].c_str(),    nullptr);
+    items[(i*5)+3] = new_item(rowElev[i].c_str(),   nullptr);
+    items[(i*5)+4] = new_item(rowRange[i].c_str(), nullptr);
+  }
+  auto menu = new_menu(items);
+
+  // Setup the menu format (columns).
+  set_menu_mark(menu, "->");
+  set_menu_format(menu, TLEsAndLAs.size(), 5); // Number, Name, Az, Ele, Range.
+
+  // Create a window to decorate the menu with.
+  auto win = newwin(70, 110, 2, 2);
+  set_menu_win(menu, win);
+  set_menu_sub(menu, derwin(win, 60, 100, 2, 2));
+  box(win, '|', '=');
+
+  // Display.
+  refresh();
+  post_menu(menu);
+  wrefresh(win);
+  wrefresh(win);
+  int c;
+  while ((c = getch()) != 'q') {
+    switch (c) {
+      case KEY_DOWN: menu_driver(menu, REQ_DOWN_ITEM); break;
+      case KEY_UP: menu_driver(menu, REQ_UP_ITEM); break;
+    }
+    refresh();
+    wrefresh(win);
+  }
+
+  // Cleanup.
+  for (size_t i=0; i<TLEsAndLAs.size()*5+1; ++i)
+    free_item(items[i]);
+  delete [] items;
+  delete [] rowId;
+  delete [] rowName;
+  delete [] rowAz;
+  delete [] rowElev;
+  delete [] rowRange;
+  free_menu(menu);
+  endwin();
+#endif // HAVE_GUI
+}
+
 int main(int argc, char **argv) {
   double alt = 0.0, lat = 0.0, lon = 0.0;
-  bool verbose = false;
+  bool verbose = false, gui = false;
   const char *sourceFile = nullptr, *dbFile = DEFAULT_DB_PATH;
   int opt;
-  while ((opt = getopt_long(argc, argv, "vha:x:y:u:d:", opts, nullptr)) > 0) {
+  while ((opt = getopt_long(argc, argv, "ghva:d:u:x:y:", opts, nullptr)) > 0) {
     switch (opt) {
+#if HAVE_GUI
+      case 'g':
+        gui = true;
+        break;
+#endif
       case 'h':
         usage(argv[0]);
         break;
+      case 'v':
+        verbose = true;
+        break;
       case 'a':
         alt = std::stod(optarg);
+        break;
+      case 'd':
+        dbFile = optarg;
+        break;
+      case 'u':
+        sourceFile = optarg;
         break;
       case 'x':
         lat = std::stod(optarg);
@@ -274,20 +405,10 @@ int main(int argc, char **argv) {
       case 'y':
         lon = std::stod(optarg);
         break;
-      case 'u':
-        sourceFile = optarg;
-        break;
-      case 'd':
-        dbFile = optarg;
-        break;
-      case 'v':
-        verbose = true;
-        break;
-      default: {
+      default:
         std::cerr << "[-] Unknown command line option." << std::endl;
         exit(EXIT_FAILURE);
         break;
-      }
     }
   }
 
@@ -318,25 +439,12 @@ int main(int argc, char **argv) {
   // If a source file is specified, then update the existing database.
   if (sourceFile) update(sourceFile, sql, verbose);
 
-  // Get the TLEs.
-  std::vector<Tle> tles = fetchTLEs(sql);
-
-  // Build the observer (user's) position.
-  auto me = Observer(lat, lon, alt);
-
-  // Use the current datetime.
-  auto now = DateTime::Now(true);
-
-  // Compute and report the look angles.
-  std::vector<SatLookAngle> TLEsAndLAs;
-  for (const auto &tle : tles) {
-    const auto model = SGP4(tle);
-    const auto pos = model.FindPosition(now);
-    const auto la = me.GetLookAngle(pos);
-    TLEsAndLAs.emplace_back(tle, la);
-  }
-
-  displayResults(TLEsAndLAs);
+  // Calculate and display.
+  auto TLEsAndLAs = getSatellitesAndLocations(lat, lon, alt, sql);
+  if (gui)
+    runGUI(TLEsAndLAs);
+  else
+    displayResults(TLEsAndLAs);
 
   // Cleanup.
   sqlite3_close(sql);
