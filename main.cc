@@ -138,6 +138,9 @@ static bool tryParseURL(const std::string &fname, std::vector<Tle> &tles) {
   if (!crl) return false;
   if (curl_easy_setopt(crl, CURLOPT_URL, fname.c_str())) return false;
 
+  // Ignore any "URLs" that do not have a protocol delimiter.
+  if (fname.find("://") == std::string::npos) return false;
+
   // Prepare to download the TLE data into a temp file.
   FILE *fp = tmpfile();
   if (!fp) return false;
