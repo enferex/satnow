@@ -44,10 +44,11 @@ static const struct option opts[] = {
     {"help", no_argument, nullptr, 'h'}};
 
 [[noreturn]] static void usage(const char *execname) {
-  std::cout << "Usage: " << execname << " --lat=val --lon=val "
-            << "[--help --verbose --alt=val --update=file --db=file "
+  std::cout << "satnow v" << VER << std::endl
+            << "Usage: " << execname << " --lat=val --lon=val "
+            << "[-h -v --alt=val --update=file --db=file "
 #if HAVE_GUI
-            << " --gui"
+            << "--gui"
 #endif
             << ']' << std::endl
             << "  --lat=<latitude in degrees>" << std::endl
