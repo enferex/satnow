@@ -15,7 +15,7 @@ ExternalProject_Add(sgp4_download
 include_directories(${CMAKE_SOURCE_DIR}/third-party/sgp4/libsgp4)
 link_directories(${CMAKE_BINARY_DIR}/third-party/sgp4/src/sgp4_download-build/libsgp4)
 
-add_executable (satnow main.cc db.cc)
+add_executable (satnow main.cc db.cc display.cc)
 
 target_link_libraries(satnow sgp4 curl sqlite3)
 add_dependencies(satnow sgp4_download)

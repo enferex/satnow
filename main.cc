@@ -1,85 +1,20 @@
 #include <curl/curl.h>
 #include <getopt.h>
-#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <iterator>
-#include <sstream>
 #include <string>
 #include <vector>
-#if HAVE_GUI
-#include <menu.h>
-#include <ncurses.h>
-#endif
-#include <CoordTopocentric.h>
-#include <Observer.h>
-#include <SGP4.h>
 #include "db.hh"
+#include "display.hh"
+#include "main.hh"
 
 // Resources:
 // https://www.celestrak.com/NORAD/documentation/tle-fmt.php
 // https://en.wikipedia.org/wiki/Two-line_element_set
-
-// Version info. Excuse the ugly trick to get strigification for a macro value.
-#define MAJOR 0
-#define MINOR 1
-#define PATCH 0
-#define _VER2(_x,_y,_z) #_x"."#_y"."#_z
-#define _VER(_x,_y,_z) _VER2(_x, _y, _z)
-#define VER _VER(MAJOR, MINOR, PATCH)
-
-using SatLookAngle = std::pair<Tle, CoordTopocentric>;
-
-class SatLookAngles {
- private:
-  double _lat, _lon, _alt;
-  std::vector<SatLookAngle> _sats;
-  Observer _me;
-  DateTime _time;
-
- public:
-  SatLookAngles(double lat, double lon, double alt)
-      : _me(lat, lon, alt), _time(DateTime::Now(true)) {}
-
-  // Add the tle to the _sats container, and also
-  // generate the look angle at _time.
-  void add(Tle tle) {
-    const auto model = SGP4(tle);
-    const auto pos = model.FindPosition(_time);
-    const auto la = _me.GetLookAngle(pos);
-    _sats.emplace_back(tle, la);
-  }
-
-  // Regenerate new look angles with the current time.
-  void updateTimeAndPositions() {
-    _time = DateTime::Now(true);
-    for (auto &sat : _sats) {
-    const auto model = SGP4(sat.first);
-    const auto pos = model.FindPosition(_time);
-    sat.second = _me.GetLookAngle(pos);
-    }
-  }
-
-  // Sort the satellites based on range (closest to furthest).
-  void sort() {
-    std::sort(_sats.begin(), _sats.end(),
-              [](const SatLookAngle &a, const SatLookAngle &b) {
-                return a.second.range < b.second.range;
-              });
-  }
-
-  std::vector<SatLookAngle>::iterator begin() { return _sats.begin(); }
-  std::vector<SatLookAngle>::iterator end() { return _sats.end(); }
-  size_t size() const { return _sats.size(); }
-  SatLookAngle &operator[](size_t index) {
-    assert(index < size() && "Invalid index.");
-    return _sats[index];
-  }
-};
 
 // Command line options.
 static const struct option opts[] = {
@@ -269,150 +204,19 @@ static void update(const char *sourceFile, DB &db, bool verbose) {
   }
 }
 
-static void displayResults(SatLookAngles &TLEsAndLAs) {
-  size_t count = 0;
-  const size_t nTles = TLEsAndLAs.size();
-  for (const auto &TL : TLEsAndLAs) {
-    const auto &tle = TL.first;
-    const auto &la = TL.second;
-    std::cout << "[+] [" << (++count) << '/' << nTles << "] " << '('
-              << tle.Name() << "): LookAngle: " << la << std::endl;
-  }
-}
-
-static SatLookAngles getSatellitesAndLookAngles(double lat,
-                                                double lon,
-                                                double alt, DB &db) {
+SatLookAngles getSatellitesAndLookAngles(double lat, double lon, double alt,
+                                         DB &db) {
   SatLookAngles sats(lat, lon, alt);
 
   // Get the TLEs.
   std::vector<Tle> tles = db.fetchTLEs();
 
   // Add the TLEs (this will automatically generate look angles.).
-  for (const auto &tle : tles)
-    sats.add(tle);
+  for (const auto &tle : tles) sats.add(tle);
 
   // Sort by increasing range.
   sats.sort();
   return sats;
-}
-
-static void runGUI(SatLookAngles &sats) {
-#if HAVE_GUI
-  // Init ncurses.
-  initscr();
-  cbreak();
-  noecho();
-  keypad(stdscr, TRUE);
-
-  // Build the menu and have a place to store the strings.
-  auto items = new ITEM *[sats.size() + 1]();
-  auto itemStrs = new std::string[sats.size()];
-  items[sats.size()] = nullptr;
-
-  // Column names.
-  std::stringstream ss;
-  ss << std::left << std::setw(10) << "ID" << std::setw(25) << "NAME"
-     << std::setw(12) << "AZIMUTH" << std::setw(12) << "ELEVATION"
-     << std::setw(12) << "RANGE (KM)";
-  std::string colNames = ss.str();
-
- // Create a window to decorate the menu with.
-  const int rows = std::min(LINES, 79);
-  const int cols = std::min(COLS, 85);
-  auto win = newwin(rows, cols, 0, 0);
-  box(win, '|', '=');
-
-  // Draw the text help legend.
-
-  // Populate menu.
-  MENU *menu = nullptr;
-  auto updateMenu = [&](bool updatePositions) {
-    if (updatePositions) {
-      sats.updateTimeAndPositions();
-      sats.sort();
-    }
-
-    // Remember cursor position so we can restore it.
-    ITEM *curItem = current_item(menu);
-    int curIdx = item_index(curItem);
-    if (curIdx < 0) curIdx = 0;
-
-    // Create the strings (items) for the menu.
-    for (size_t i = 0; i < sats.size(); ++i) {
-      const auto &tle = sats[i].first;
-      const auto &la = sats[i].second;
-      std::stringstream ss;
-      ss << std::left << std::setw(10) << std::to_string(i) << std::setw(25)
-         << tle.Name() << std::setw(12) << std::to_string(la.azimuth)
-         << std::setw(12) << std::to_string(la.elevation) << std::setw(12)
-         << std::to_string(la.range);
-      itemStrs[i] = ss.str();
-      if (items[i]) free_item(items[i]);
-      items[i] = new_item(itemStrs[i].c_str(), nullptr);
-
-      if (i == (size_t)curIdx) curItem = items[i]; // Updated item at cursor position.
-    }
-
-    // Rebuild the menu (freeing the previous one).
-    if (menu) { 
-      unpost_menu(menu);
-      free_menu(menu);
-    }
-    menu = new_menu(items);
-    set_menu_mark(menu, "->");
-    set_menu_format(menu, std::min(sats.size(), (size_t)rows - 5), 1);
-    set_menu_win(menu, win);
-    set_menu_sub(menu, derwin(win, rows - 5, cols - 2, 2, 1));
-    set_current_item(menu, curItem);
-    post_menu(menu);
-  };
-
-  updateMenu(false); // 'false' avoids calculating new look angles.
-
-  // Add title and column names.
-  mvwprintw(win, 0, (cols / 2 - 12), "%s", "}-- satnow " VER " --{");
-  mvwprintw(win, 1, 3, "%s", colNames.c_str());
-
-  // Print a legend at the bottom.
-  mvwhline(win, rows-3, 1, '-', cols-2);
-  mvwprintw(win, rows-2, 1, "%s",
-            "[Quit: (q)] [Update: (space)] "
-            "[Movement: (pg)up/(pg)down] [Details: (enter)]");
-
-  // Display.
-  refresh();
-  wrefresh(win);
-  int c;
-  while ((c = getch()) != 'q') {
-    switch (c) {
-      case KEY_DOWN:
-        menu_driver(menu, REQ_DOWN_ITEM);
-        break;
-      case KEY_UP:
-        menu_driver(menu, REQ_UP_ITEM);
-        break;
-      case KEY_NPAGE:
-        menu_driver(menu, REQ_SCR_DPAGE);
-        break;
-      case KEY_PPAGE:
-        menu_driver(menu, REQ_SCR_UPAGE);
-        break;
-      case ' ':
-        updateMenu(true);
-        refresh();
-        break;
-    }
-    wrefresh(win);
-  }
-
-  // Cleanup.
-  for (size_t i = 0; i < sats.size() + 1; ++i) free_item(items[i]);
-  delete[] items;
-  delete[] itemStrs;
-  delwin(win);
-  endwin();
-#endif  // HAVE_GUI
 }
 
 int main(int argc, char **argv) {
@@ -485,10 +289,13 @@ int main(int argc, char **argv) {
 
   // Calculate and display.
   auto TLEsAndLAs = getSatellitesAndLookAngles(lat, lon, alt, db);
-  if (gui)
-    runGUI(TLEsAndLAs);
-  else
-    displayResults(TLEsAndLAs);
+  if (gui)  {
+    DisplayNCurses disp;
+    disp.render(TLEsAndLAs);
+  } else {
+    DisplayConsole disp;
+    disp.render(TLEsAndLAs);
+  }
 
   return 0;
 }
