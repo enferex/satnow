@@ -39,15 +39,36 @@ class SatLookAngles {
   SatLookAngles(double lat, double lon, double alt)
       : _me(lat, lon, alt), _time(DateTime::Now(true)) {}
 
-  void add(Tle tle, CoordTopocentric lookAngles) {
-    _sats.emplace_back(tle, lookAngles);
+  // Add the tle to the _sats container, and also
+  // generate the look angle at _time.
+  void add(Tle tle) {
+    const auto model = SGP4(tle);
+    const auto pos = model.FindPosition(_time);
+    const auto la = _me.GetLookAngle(pos);
+    _sats.emplace_back(tle, la);
+  }
+
+  // Regenerate new look angles with the current time.
+  void updateTimeAndPositions() {
+    _time = DateTime::Now(true);
+    for (auto sat : _sats) {
+    const auto model = SGP4(sat.first);
+    const auto pos = model.FindPosition(_time);
+    sat.second = _me.GetLookAngle(pos);
+    }
+  }
+
+  // Sort the satellites based on range (closest to furthest).
+  void sort() {
+    std::sort(_sats.begin(), _sats.end(),
+              [](const SatLookAngle &a, const SatLookAngle &b) {
+                return a.second.range < b.second.range;
+              });
   }
 
   std::vector<SatLookAngle>::iterator begin() { return _sats.begin(); }
   std::vector<SatLookAngle>::iterator end() { return _sats.end(); }
   size_t size() const { return _sats.size(); }
-  const DateTime getTime() const { return _time; }
-  Observer &getObserver() { return _me; }
   SatLookAngle &operator[](size_t index) {
     assert(index < size() && "Invalid index.");
     return _sats[index];
@@ -261,26 +282,18 @@ static SatLookAngles getSatellitesAndLookAngles(double lat,
   // Get the TLEs.
   std::vector<Tle> tles = db.fetchTLEs();
 
-  // Compute and report the look angles.
-  for (const auto &tle : tles) {
-    const auto model = SGP4(tle);
-    const auto pos = model.FindPosition(sats.getTime());
-    const auto la = sats.getObserver().GetLookAngle(pos);
-    sats.add(tle, la);
-  }
+  // Add the TLEs (this will automatically generate look angles.).
+  for (const auto &tle : tles)
+    sats.add(tle);
 
   // Sort by increasing range.
-  std::sort(sats.begin(), sats.end(),
-            [](const SatLookAngle &a, const SatLookAngle &b) {
-              return a.second.range < b.second.range;
-            });
-
+  sats.sort();
   return sats;
 }
 
 static void runGUI(SatLookAngles &TLEsAndLAs) {
 #if HAVE_GUI
-  // Init curses.
+  // Init ncurses.
   initscr();
   cbreak();
   noecho();
@@ -299,7 +312,12 @@ static void runGUI(SatLookAngles &TLEsAndLAs) {
   std::string colNames = ss.str();
 
   // Populate menu.
-  auto updateMenu = [&] {
+  MENU *menu = new_menu(nullptr);
+  auto updateMenu = [&](bool updatePositions) {
+    if (updatePositions) {
+      TLEsAndLAs.updateTimeAndPositions();
+      TLEsAndLAs.sort();
+    }
     for (size_t i = 0; i < TLEsAndLAs.size(); ++i) {
       const auto &tle = TLEsAndLAs[i].first;
       const auto &la = TLEsAndLAs[i].second;
@@ -312,28 +330,29 @@ static void runGUI(SatLookAngles &TLEsAndLAs) {
       if (items[i]) free_item(items[i]);
       items[i] = new_item(itemStrs[i].c_str(), nullptr);
     }
+    set_menu_items(menu, items);
   };
-  updateMenu();
-  auto menu = new_menu(items);
-  set_menu_mark(menu, "->");
 
   // Create a window to decorate the menu with.
   const int rows = std::min(LINES, 79);
   const int cols = std::min(COLS, 79);
   auto win = newwin(rows, cols, 0, 0);
+  box(win, '|', '=');
+
+  // Add items to the menu and setup the windowing..
+  updateMenu(false); // First draw, 'false' avoids calculating new look angles.
+  set_menu_mark(menu, "->");
   set_menu_format(menu, std::min(TLEsAndLAs.size(), (size_t)rows - 3), 1);
   set_menu_win(menu, win);
   set_menu_sub(menu, derwin(win, rows - 2, cols - 2, 2, 2));
-  box(win, '|', '=');
 
   // Add column names and title.
   mvwprintw(win, 1, 4, "%s", colNames.c_str());
   mvwprintw(win, 0, (cols / 2 - 9), "%s", "}-- satnow " VER " --{");
 
   // Display.
-  refresh();
   post_menu(menu);
-  wrefresh(win);
+  refresh();
   wrefresh(win);
   int c;
   while ((c = getch()) != 'q') {
@@ -351,10 +370,9 @@ static void runGUI(SatLookAngles &TLEsAndLAs) {
         menu_driver(menu, REQ_SCR_UPAGE);
         break;
       case ' ':
-        updateMenu();
+        updateMenu(true);
         break;
     }
-    refresh();
     wrefresh(win);
   }
 
@@ -363,6 +381,7 @@ static void runGUI(SatLookAngles &TLEsAndLAs) {
   delete[] items;
   delete[] itemStrs;
   free_menu(menu);
+  delwin(win);
   endwin();
 #endif  // HAVE_GUI
 }
