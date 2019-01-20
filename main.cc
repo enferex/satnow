@@ -24,7 +24,13 @@
 // https://www.celestrak.com/NORAD/documentation/tle-fmt.php
 // https://en.wikipedia.org/wiki/Two-line_element_set
 
-#define VER "0.1b"
+// Version info. Excuse the ugly trick to get strigification for a macro value.
+#define MAJOR 0
+#define MINOR 1
+#define PATCH 0
+#define _VER2(_x,_y,_z) #_x"."#_y"."#_z
+#define _VER(_x,_y,_z) _VER2(_x, _y, _z)
+#define VER _VER(MAJOR, MINOR, PATCH)
 
 using SatLookAngle = std::pair<Tle, CoordTopocentric>;
 
@@ -365,7 +371,7 @@ static void runGUI(SatLookAngles &sats) {
   updateMenu(false); // 'false' avoids calculating new look angles.
 
   // Add title and column names.
-  mvwprintw(win, 0, (cols / 2 - 9), "%s", "}-- satnow " VER " --{");
+  mvwprintw(win, 0, (cols / 2 - 12), "%s", "}-- satnow " VER " --{");
   mvwprintw(win, 1, 3, "%s", colNames.c_str());
 
   // Print a legend at the bottom.
