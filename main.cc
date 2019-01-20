@@ -327,6 +327,11 @@ static void runGUI(SatLookAngles &sats) {
       sats.sort();
     }
 
+    // Remember cursor position so we can restore it.
+    ITEM *curItem = current_item(menu);
+    int curIdx = item_index(curItem);
+    if (curIdx < 0) curIdx = 0;
+
     // Create the strings (items) for the menu.
     for (size_t i = 0; i < sats.size(); ++i) {
       const auto &tle = sats[i].first;
@@ -339,6 +344,8 @@ static void runGUI(SatLookAngles &sats) {
       itemStrs[i] = ss.str();
       if (items[i]) free_item(items[i]);
       items[i] = new_item(itemStrs[i].c_str(), nullptr);
+
+      if (i == (size_t)curIdx) curItem = items[i]; // Updated item at cursor position.
     }
 
     // Rebuild the menu (freeing the previous one).
@@ -351,6 +358,7 @@ static void runGUI(SatLookAngles &sats) {
     set_menu_format(menu, std::min(sats.size(), (size_t)rows - 4), 1);
     set_menu_win(menu, win);
     set_menu_sub(menu, derwin(win, rows - 4, cols - 2, 2, 1));
+    set_current_item(menu, curItem);
     post_menu(menu);
   };
 
