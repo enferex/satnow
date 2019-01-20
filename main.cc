@@ -317,6 +317,8 @@ static void runGUI(SatLookAngles &sats) {
   auto win = newwin(rows, cols, 0, 0);
   box(win, '|', '=');
 
+  // Draw the text help legend.
+
   // Populate menu.
   MENU *menu = nullptr;
   auto updateMenu = [&](bool updatePositions) {
@@ -346,9 +348,9 @@ static void runGUI(SatLookAngles &sats) {
     }
     menu = new_menu(items);
     set_menu_mark(menu, "->");
-    set_menu_format(menu, std::min(sats.size(), (size_t)rows - 3), 1);
+    set_menu_format(menu, std::min(sats.size(), (size_t)rows - 4), 1);
     set_menu_win(menu, win);
-    set_menu_sub(menu, derwin(win, rows - 3, cols - 2, 2, 1));
+    set_menu_sub(menu, derwin(win, rows - 4, cols - 2, 2, 1));
     post_menu(menu);
   };
 
@@ -357,6 +359,12 @@ static void runGUI(SatLookAngles &sats) {
   // Add title and column names.
   mvwprintw(win, 0, (cols / 2 - 9), "%s", "}-- satnow " VER " --{");
   mvwprintw(win, 1, 3, "%s", colNames.c_str());
+
+  // Print a legend at the bottom.
+  mvwhline(win, rows-3, 1, '-', cols-2);
+  mvwprintw(win, rows-2, 1, "%s",
+            "[Quit: (q)] [Update: (space)] "
+            "[Movement: (pg)up/(pg)down] [Details: (enter)]");
 
   // Display.
   refresh();
