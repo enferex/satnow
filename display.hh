@@ -20,7 +20,10 @@ class DisplayConsole final : public Display {
 };
 
 class DisplayNCurses final : public Display {
+ private:
+  int _refreshSecs;  // Number of seconds between refreshing gui data.
  public:
+  DisplayNCurses(int refreshSeconds = -1) : _refreshSecs(refreshSeconds) {}
   void render(SatLookAngles &sats) override final;
 };
 

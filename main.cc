@@ -1,3 +1,4 @@
+#include "main.hh"
 #include <curl/curl.h>
 #include <getopt.h>
 #include <cctype>
@@ -10,7 +11,6 @@
 #include <vector>
 #include "db.hh"
 #include "display.hh"
-#include "main.hh"
 
 // Resources:
 // https://www.celestrak.com/NORAD/documentation/tle-fmt.php
@@ -26,18 +26,18 @@ static const struct option opts[] = {
     {"verbose", no_argument, nullptr, 'v'},
 #if HAVE_GUI
     {"gui", no_argument, nullptr, 'g'},
+    {"refresh", required_argument, nullptr, 'r'},
 #endif
     {"help", no_argument, nullptr, 'h'}};
 
 [[noreturn]] static void usage(const char *execname) {
   std::cout << "satnow v" << VER << std::endl
             << "Usage: " << execname << " --lat=val --lon=val "
-            << "[-h -v --alt=val --update=file --db=file "
+            << "[-h -v --alt=val --update=file --db=file]" << std::endl;
 #if HAVE_GUI
-            << "--gui"
+  std::cout << "       [--gui --refresh=msec] " << std::endl;
 #endif
-            << ']' << std::endl
-            << "  --lat=<latitude in degrees>" << std::endl
+  std::cout << "  --lat=<latitude in degrees>" << std::endl
             << "  --lon=<longitude in degrees>" << std::endl
             << "  --alt=<altitude in meters>" << std::endl
             << "  --db=<path to database> (default: " << DEFAULT_DB_PATH << ')'
@@ -47,6 +47,8 @@ static const struct option opts[] = {
             << std::endl
 #if HAVE_GUI
             << "  --gui: Enable curses/gui mode." << std::endl
+            << "  --refresh/-r: Number of milliseconds to refresh gui."
+            << std::endl
 #endif
             << "  --update=<sources>  " << std::endl
             << "    Where 'sources' is a text file containing a " << std::endl
@@ -223,12 +225,16 @@ int main(int argc, char **argv) {
   double alt = 0.0, lat = 0.0, lon = 0.0;
   bool verbose = false, gui = false;
   const char *sourceFile = nullptr, *dbFile = DEFAULT_DB_PATH;
-  int opt;
-  while ((opt = getopt_long(argc, argv, "ghva:d:u:x:y:", opts, nullptr)) > 0) {
+  int opt, refreshRate = -1;
+  const char *optStr = "ghva:d:r:u:x:y:";
+  while ((opt = getopt_long(argc, argv, optStr, opts, nullptr)) > 0) {
     switch (opt) {
 #if HAVE_GUI
       case 'g':
         gui = true;
+        break;
+      case 'r':
+        refreshRate = std::stoi(optarg);
         break;
 #endif
       case 'h':
@@ -289,8 +295,8 @@ int main(int argc, char **argv) {
 
   // Calculate and display.
   auto TLEsAndLAs = getSatellitesAndLookAngles(lat, lon, alt, db);
-  if (gui)  {
-    DisplayNCurses disp;
+  if (gui) {
+    DisplayNCurses disp(refreshRate);
     disp.render(TLEsAndLAs);
   } else {
     DisplayConsole disp;

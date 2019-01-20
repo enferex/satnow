@@ -1,8 +1,8 @@
 #include "display.hh"
-#include "main.hh"
 #include <SGP4.h>
 #include <iomanip>
 #include <iostream>
+#include "main.hh"
 #if HAVE_GUI
 #include <menu.h>
 #include <ncurses.h>
@@ -104,6 +104,8 @@ void DisplayNCurses::render(SatLookAngles &sats) {
   // Display.
   refresh();
   wrefresh(win);
+  const int msecs = (_refreshSecs < 0) ? -1 : _refreshSecs;
+  timeout(msecs);
   int c;
   while ((c = getch()) != 'q') {
     switch (c) {
@@ -120,6 +122,7 @@ void DisplayNCurses::render(SatLookAngles &sats) {
         menu_driver(menu, REQ_SCR_UPAGE);
         break;
       case ' ':
+      case ERR:
         updateMenu(true);
         refresh();
         break;
