@@ -33,11 +33,25 @@ class SatLookAngles {
   double _lat, _lon, _alt;
   std::vector<SatLookAngle> _sats;
   Observer _me;
-  DateTime _now;
+  DateTime _time;
 
  public:
   SatLookAngles(double lat, double lon, double alt)
-      : _me(lat, lon, alt), _now(DateTime::Now(true)) {}
+      : _me(lat, lon, alt), _time(DateTime::Now(true)) {}
+
+  void add(Tle tle, CoordTopocentric lookAngles) {
+    _sats.emplace_back(tle, lookAngles);
+  }
+
+  std::vector<SatLookAngle>::iterator begin() { return _sats.begin(); }
+  std::vector<SatLookAngle>::iterator end() { return _sats.end(); }
+  size_t size() const { return _sats.size(); }
+  const DateTime getTime() const { return _time; }
+  Observer &getObserver() { return _me; }
+  SatLookAngle &operator[](size_t index) {
+    assert(index < size() && "Invalid index.");
+    return _sats[index];
+  }
 };
 
 // Command line options.
@@ -228,7 +242,7 @@ static void update(const char *sourceFile, DB &db, bool verbose) {
   }
 }
 
-static void displayResults(std::vector<SatLookAngle> &TLEsAndLAs) {
+static void displayResults(SatLookAngles &TLEsAndLAs) {
   size_t count = 0;
   const size_t nTles = TLEsAndLAs.size();
   for (const auto &TL : TLEsAndLAs) {
@@ -239,37 +253,32 @@ static void displayResults(std::vector<SatLookAngle> &TLEsAndLAs) {
   }
 }
 
-static std::vector<SatLookAngle> getSatellitesAndLocations(double lat,
-                                                           double lon,
-                                                           double alt, DB &db) {
+static SatLookAngles getSatellitesAndLookAngles(double lat,
+                                                double lon,
+                                                double alt, DB &db) {
+  SatLookAngles sats(lat, lon, alt);
+
   // Get the TLEs.
   std::vector<Tle> tles = db.fetchTLEs();
 
-  // Build the observer (user's) position.
-  auto me = Observer(lat, lon, alt);
-
-  // Use the current datetime.
-  auto now = DateTime::Now(true);
-
   // Compute and report the look angles.
-  std::vector<SatLookAngle> TLEsAndLAs;
   for (const auto &tle : tles) {
     const auto model = SGP4(tle);
-    const auto pos = model.FindPosition(now);
-    const auto la = me.GetLookAngle(pos);
-    TLEsAndLAs.emplace_back(tle, la);
+    const auto pos = model.FindPosition(sats.getTime());
+    const auto la = sats.getObserver().GetLookAngle(pos);
+    sats.add(tle, la);
   }
 
   // Sort by increasing range.
-  std::sort(TLEsAndLAs.begin(), TLEsAndLAs.end(),
+  std::sort(sats.begin(), sats.end(),
             [](const SatLookAngle &a, const SatLookAngle &b) {
               return a.second.range < b.second.range;
             });
 
-  return TLEsAndLAs;
+  return sats;
 }
 
-static void runGUI(std::vector<SatLookAngle> &TLEsAndLAs) {
+static void runGUI(SatLookAngles &TLEsAndLAs) {
 #if HAVE_GUI
   // Init curses.
   initscr();
@@ -427,7 +436,7 @@ int main(int argc, char **argv) {
   if (sourceFile) update(sourceFile, db, verbose);
 
   // Calculate and display.
-  auto TLEsAndLAs = getSatellitesAndLocations(lat, lon, alt, db);
+  auto TLEsAndLAs = getSatellitesAndLookAngles(lat, lon, alt, db);
   if (gui)
     runGUI(TLEsAndLAs);
   else
