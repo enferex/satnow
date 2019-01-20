@@ -51,7 +51,7 @@ class SatLookAngles {
   // Regenerate new look angles with the current time.
   void updateTimeAndPositions() {
     _time = DateTime::Now(true);
-    for (auto sat : _sats) {
+    for (auto &sat : _sats) {
     const auto model = SGP4(sat.first);
     const auto pos = model.FindPosition(_time);
     sat.second = _me.GetLookAngle(pos);
@@ -291,7 +291,7 @@ static SatLookAngles getSatellitesAndLookAngles(double lat,
   return sats;
 }
 
-static void runGUI(SatLookAngles &TLEsAndLAs) {
+static void runGUI(SatLookAngles &sats) {
 #if HAVE_GUI
   // Init ncurses.
   initscr();
@@ -300,9 +300,9 @@ static void runGUI(SatLookAngles &TLEsAndLAs) {
   keypad(stdscr, TRUE);
 
   // Build the menu and have a place to store the strings.
-  auto items = new ITEM *[TLEsAndLAs.size() + 1]();
-  auto itemStrs = new std::string[TLEsAndLAs.size()];
-  items[TLEsAndLAs.size()] = nullptr;
+  auto items = new ITEM *[sats.size() + 1]();
+  auto itemStrs = new std::string[sats.size()];
+  items[sats.size()] = nullptr;
 
   // Column names.
   std::stringstream ss;
@@ -311,16 +311,24 @@ static void runGUI(SatLookAngles &TLEsAndLAs) {
      << std::setw(12) << "RANGE (KM)";
   std::string colNames = ss.str();
 
+ // Create a window to decorate the menu with.
+  const int rows = std::min(LINES, 79);
+  const int cols = std::min(COLS, 85);
+  auto win = newwin(rows, cols, 0, 0);
+  box(win, '|', '=');
+
   // Populate menu.
-  MENU *menu = new_menu(nullptr);
+  MENU *menu = nullptr;
   auto updateMenu = [&](bool updatePositions) {
     if (updatePositions) {
-      TLEsAndLAs.updateTimeAndPositions();
-      TLEsAndLAs.sort();
+      sats.updateTimeAndPositions();
+      sats.sort();
     }
-    for (size_t i = 0; i < TLEsAndLAs.size(); ++i) {
-      const auto &tle = TLEsAndLAs[i].first;
-      const auto &la = TLEsAndLAs[i].second;
+
+    // Create the strings (items) for the menu.
+    for (size_t i = 0; i < sats.size(); ++i) {
+      const auto &tle = sats[i].first;
+      const auto &la = sats[i].second;
       std::stringstream ss;
       ss << std::left << std::setw(10) << std::to_string(i) << std::setw(25)
          << tle.Name() << std::setw(12) << std::to_string(la.azimuth)
@@ -330,28 +338,27 @@ static void runGUI(SatLookAngles &TLEsAndLAs) {
       if (items[i]) free_item(items[i]);
       items[i] = new_item(itemStrs[i].c_str(), nullptr);
     }
-    set_menu_items(menu, items);
+
+    // Rebuild the menu (freeing the previous one).
+    if (menu) { 
+      unpost_menu(menu);
+      free_menu(menu);
+    }
+    menu = new_menu(items);
+    set_menu_mark(menu, "->");
+    set_menu_format(menu, std::min(sats.size(), (size_t)rows - 3), 1);
+    set_menu_win(menu, win);
+    set_menu_sub(menu, derwin(win, rows - 3, cols - 2, 2, 1));
+    post_menu(menu);
   };
 
-  // Create a window to decorate the menu with.
-  const int rows = std::min(LINES, 79);
-  const int cols = std::min(COLS, 79);
-  auto win = newwin(rows, cols, 0, 0);
-  box(win, '|', '=');
+  updateMenu(false); // 'false' avoids calculating new look angles.
 
-  // Add items to the menu and setup the windowing..
-  updateMenu(false); // First draw, 'false' avoids calculating new look angles.
-  set_menu_mark(menu, "->");
-  set_menu_format(menu, std::min(TLEsAndLAs.size(), (size_t)rows - 3), 1);
-  set_menu_win(menu, win);
-  set_menu_sub(menu, derwin(win, rows - 2, cols - 2, 2, 2));
-
-  // Add column names and title.
-  mvwprintw(win, 1, 4, "%s", colNames.c_str());
+  // Add title and column names.
   mvwprintw(win, 0, (cols / 2 - 9), "%s", "}-- satnow " VER " --{");
+  mvwprintw(win, 1, 3, "%s", colNames.c_str());
 
   // Display.
-  post_menu(menu);
   refresh();
   wrefresh(win);
   int c;
@@ -371,16 +378,16 @@ static void runGUI(SatLookAngles &TLEsAndLAs) {
         break;
       case ' ':
         updateMenu(true);
+        refresh();
         break;
     }
     wrefresh(win);
   }
 
   // Cleanup.
-  for (size_t i = 0; i < TLEsAndLAs.size() + 1; ++i) free_item(items[i]);
+  for (size_t i = 0; i < sats.size() + 1; ++i) free_item(items[i]);
   delete[] items;
   delete[] itemStrs;
-  free_menu(menu);
   delwin(win);
   endwin();
 #endif  // HAVE_GUI
