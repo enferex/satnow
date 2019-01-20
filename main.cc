@@ -361,9 +361,9 @@ static void runGUI(SatLookAngles &sats) {
     }
     menu = new_menu(items);
     set_menu_mark(menu, "->");
-    set_menu_format(menu, std::min(sats.size(), (size_t)rows - 4), 1);
+    set_menu_format(menu, std::min(sats.size(), (size_t)rows - 5), 1);
     set_menu_win(menu, win);
-    set_menu_sub(menu, derwin(win, rows - 4, cols - 2, 2, 1));
+    set_menu_sub(menu, derwin(win, rows - 5, cols - 2, 2, 1));
     set_current_item(menu, curItem);
     post_menu(menu);
   };
