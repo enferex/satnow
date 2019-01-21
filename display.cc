@@ -1,10 +1,10 @@
 #include "display.hh"
 #include <SGP4.h>
+#include <array>
 #include <iomanip>
 #include <iostream>
 #include <string>
 #include <utility>
-#include <array>
 #include "main.hh"
 #if HAVE_GUI
 #include <menu.h>
@@ -23,7 +23,8 @@ void DisplayConsole::render(SatLookAngles &TLEsAndLAs) {
   }
 }
 
-DisplayNCurses::DisplayNCurses(int refreshSeconds) : _refreshSecs(refreshSeconds) {
+DisplayNCurses::DisplayNCurses(int refreshSeconds)
+    : _refreshSecs(refreshSeconds) {
 #if HAVE_GUI
   // Init ncurses.
   initscr();
@@ -42,37 +43,49 @@ DisplayNCurses::~DisplayNCurses() {
 #ifdef HAVE_GUI
 using std::make_pair;
 
+// Populate the info window with data from 'sat'.
 static void updateInfoWindow(WINDOW *win, const SatLookAngle &sat) {
   const Tle &tle = sat.first;
+  int curRow = 1;
   if (tle.Name().size() > 0)
-    mvwprintw(win, 1, 1, "Name : %s", tle.Name().c_str());
+    mvwprintw(win, curRow++, 1, "Name : %s", tle.Name().c_str());
   else
-    mvwprintw(win, 1, 1, "Name : %s (NORAD ID)", std::to_string(tle.NoradNumber()).c_str());
-  mvwprintw(win, 2, 1, "Line1: %s", tle.Line1().c_str());
-  mvwprintw(win, 3, 1, "Line2: %s", tle.Line2().c_str());
+    mvwprintw(win, curRow++, 1, "Name : %s (NORAD ID)",
+              std::to_string(tle.NoradNumber()).c_str());
+  mvwprintw(win, curRow++, 1, "Line1: %s", tle.Line1().c_str());
+  mvwprintw(win, curRow++, 1, "Line2: %s", tle.Line2().c_str());
 
   // Draw a horizontal line.
   int x, y;
   getmaxyx(win, y, x);
   (void)y;
-  mvwhline(win, 4, 1, '-', x-2);
+  mvwhline(win, curRow++, 1, '-', x - 2);
 
   // Array of pairs.  These will be used to populate this win.
-const std::array<std::pair<const char *, std::string>, 12> fields = {
-    make_pair("NORAD", std::to_string(tle.NoradNumber())),
-    make_pair("Designator", tle.IntDesignator()),
-    make_pair("Epoch", tle.Epoch().ToString()),
-    make_pair("BSTAR(drag term)", std::to_string(tle.BStar())),
-    make_pair("Inclination(degs)", std::to_string(tle.Inclination(true))),
-    make_pair("RightAscention(degs)", std::to_string(tle.RightAscendingNode(true))),
-    make_pair("Eccentricity", std::to_string(tle.Eccentricity())),
-    make_pair("ArgOfPerigee(degs)", std::to_string(tle.ArgumentPerigee(true))),
-    make_pair("MeanAnomaly(degs)", std::to_string(tle.MeanAnomaly(true))),
-    make_pair("MeanMotion(revs per day)", std::to_string(tle.MeanMotion())),
-    make_pair("RevolutionNumber", std::to_string(tle.OrbitNumber()))};
-  assert((fields.size()%2) == 0 && "Uneven number of fields.");
+  std::array<std::pair<const char *, std::string>, 12> fields = {
+      make_pair("NORAD", std::to_string(tle.NoradNumber())),
+      make_pair("Designator", tle.IntDesignator()),
+      make_pair("Epoch", tle.Epoch().ToString()),
+      make_pair("BSTAR(drag term)", std::to_string(tle.BStar())),
+      make_pair("Inclination(degs)", std::to_string(tle.Inclination(true))),
+      make_pair("RightAscention(degs)",
+                std::to_string(tle.RightAscendingNode(true))),
+      make_pair("Eccentricity", std::to_string(tle.Eccentricity())),
+      make_pair("ArgOfPerigee(degs)",
+                std::to_string(tle.ArgumentPerigee(true))),
+      make_pair("MeanAnomaly(degs)", std::to_string(tle.MeanAnomaly(true))),
+      make_pair("MeanMotion(revs per day)", std::to_string(tle.MeanMotion())),
+      make_pair("RevolutionNumber", std::to_string(tle.OrbitNumber()))};
+  assert((fields.size() % 2) == 0 && "Uneven number of fields.");
+
+  // Use that array to populate win.
+  for (const auto &pr : fields) {
+    std::stringstream ss;
+    ss << std::setw((x/2) - 8) << pr.first << ": " << pr.second;
+    mvwprintw(win, ++curRow, 1, "%s", ss.str().c_str());
+  }
 }
-#endif // HAVE_GUI
+#endif  // HAVE_GUI
 
 void DisplayNCurses::render(SatLookAngles &sats) {
 #if HAVE_GUI
@@ -95,7 +108,7 @@ void DisplayNCurses::render(SatLookAngles &sats) {
   box(win, '|', '=');
 
   // Create another window to hold selected information.
-  auto infoWin = newwin(20, 79, (rows/2)-12, (cols/2)-39);
+  auto infoWin = newwin(20, 79, (rows / 2) - 12, (cols / 2) - 39);
   wattron(infoWin, A_REVERSE);
   box(infoWin, '|', '-');
   wattroff(infoWin, A_REVERSE);
