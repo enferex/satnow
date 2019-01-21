@@ -169,7 +169,7 @@ void DisplayNCurses::render(SatLookAngles &sats) {
   // Create panels.
   auto infoPanel = new_panel(infoWin);
   auto mainPanel = new_panel(win);
-  panel_hidden(infoPanel);
+  bool showInfo = false;
 
   // Populate menu ('false' avoids calculating new look angles);
   MENU *menu = updateMenu(nullptr, win, sats, items, itemStrs, false);
@@ -205,8 +205,9 @@ void DisplayNCurses::render(SatLookAngles &sats) {
         menu_driver(menu, REQ_SCR_UPAGE);
         break;
       case 'd':
+        showInfo = showInfo ^ true;
         // Swap the main and info panel.
-        if (panel_hidden(infoPanel)) {
+        if (showInfo) {
           const ITEM *ci = current_item(menu);
           updateInfoWindow(infoWin, sats[item_index(ci)]);
           show_panel(infoPanel);
