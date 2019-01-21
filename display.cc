@@ -81,9 +81,60 @@ static void updateInfoWindow(WINDOW *win, const SatLookAngle &sat) {
   // Use that array to populate win.
   for (const auto &pr : fields) {
     std::stringstream ss;
-    ss << std::setw((x/2) - 8) << pr.first << ": " << pr.second;
+    ss << std::setw((x / 2) - 8) << pr.first << ": " << pr.second;
     mvwprintw(win, ++curRow, 1, "%s", ss.str().c_str());
   }
+}
+#endif  // HAVE_GUI
+
+#if HAVE_GUI
+// This destroys the old 'menu' and creats a new one (returned).
+// This was originally a lambda inside render(), but this routine was getting
+// rather large.
+static MENU *updateMenu(MENU *menu, int rows, int cols, SatLookAngles &sats,
+   ITEM **items,
+   std::string *itemStrs,
+    bool updatePositions) {
+  if (updatePositions) {
+    sats.updateTimeAndPositions();
+    sats.sort();
+  }
+
+  // Remember cursor position so we can restore it.
+  ITEM *curItem = current_item(menu);
+  int curIdx = item_index(curItem);
+  if (curIdx < 0) curIdx = 0;
+
+  // Create the strings (items) for the menu.
+  for (size_t i = 0; i < sats.size(); ++i) {
+    const auto &tle = sats[i].first;
+    const auto &la = sats[i].second;
+    std::stringstream ss;
+    ss << std::left << std::setw(10) << std::to_string(i) << std::setw(25)
+       << tle.Name() << std::setw(12) << std::to_string(la.azimuth)
+       << std::setw(12) << std::to_string(la.elevation) << std::setw(12)
+       << std::to_string(la.range);
+    itemStrs[i] = ss.str();
+    if (items[i]) free_item(items[i]);
+    items[i] = new_item(itemStrs[i].c_str(), nullptr);
+
+    if (i == (size_t)curIdx)
+      curItem = items[i];  // Updated item at cursor position.
+  }
+
+  // Rebuild the menu (freeing the previous one).
+  if (menu) {
+    unpost_menu(menu);
+    free_menu(menu);
+  }
+  menu = new_menu(items);
+  set_menu_mark(menu, "->");
+  set_menu_format(menu, std::min(sats.size(), (size_t)rows - 5), 1);
+  set_menu_win(menu, win);
+  set_menu_sub(menu, derwin(win, rows - 5, cols - 2, 2, 1));
+  set_current_item(menu, curItem);
+  post_menu(menu);
+  return menu;
 }
 #endif  // HAVE_GUI
 
@@ -120,49 +171,6 @@ void DisplayNCurses::render(SatLookAngles &sats) {
 
   // Populate menu.
   MENU *menu = nullptr;
-  auto updateMenu = [&](bool updatePositions) {
-    // TODO: make this lambda its own static routine.
-    if (updatePositions) {
-      sats.updateTimeAndPositions();
-      sats.sort();
-    }
-
-    // Remember cursor position so we can restore it.
-    ITEM *curItem = current_item(menu);
-    int curIdx = item_index(curItem);
-    if (curIdx < 0) curIdx = 0;
-
-    // Create the strings (items) for the menu.
-    for (size_t i = 0; i < sats.size(); ++i) {
-      const auto &tle = sats[i].first;
-      const auto &la = sats[i].second;
-      std::stringstream ss;
-      ss << std::left << std::setw(10) << std::to_string(i) << std::setw(25)
-         << tle.Name() << std::setw(12) << std::to_string(la.azimuth)
-         << std::setw(12) << std::to_string(la.elevation) << std::setw(12)
-         << std::to_string(la.range);
-      itemStrs[i] = ss.str();
-      if (items[i]) free_item(items[i]);
-      items[i] = new_item(itemStrs[i].c_str(), nullptr);
-
-      if (i == (size_t)curIdx)
-        curItem = items[i];  // Updated item at cursor position.
-    }
-
-    // Rebuild the menu (freeing the previous one).
-    if (menu) {
-      unpost_menu(menu);
-      free_menu(menu);
-    }
-    menu = new_menu(items);
-    set_menu_mark(menu, "->");
-    set_menu_format(menu, std::min(sats.size(), (size_t)rows - 5), 1);
-    set_menu_win(menu, win);
-    set_menu_sub(menu, derwin(win, rows - 5, cols - 2, 2, 1));
-    set_current_item(menu, curItem);
-    post_menu(menu);
-  };
-
   updateMenu(false);  // 'false' avoids calculating new look angles.
 
   // Add title and column names.
@@ -207,7 +215,7 @@ void DisplayNCurses::render(SatLookAngles &sats) {
         break;
       case ' ':
       case ERR:
-        updateMenu(true);
+        updateMenu(menu, rows, cols, sats, items, itemStrs, true);
         refresh();
         break;
     }
