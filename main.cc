@@ -141,7 +141,7 @@ static bool tryParseURL(const std::string &fname, std::vector<Tle> &tles) {
 
   // Download the data.
   std::cout << "[+] Downloading contents from " << fname << std::endl;
-  bool ok = !!curl_easy_perform(crl);
+  bool ok = curl_easy_perform(crl) == CURLE_OK;
   curl_easy_cleanup(crl);
 
   // Read the new TLEs and add them to 'tles'.
