@@ -4,22 +4,23 @@ satnow: Collect satellite data and calculate look angles.
 satnow is a utility for collecting satellite position information and for
 displaying satellite look angles.  This might be useful for those interested in
 satellite observation.  The list of satellites is presented based on the
-range from the users latitude/longitude/altitude.
+range from the user's latitude/longitude/altitude.  Closer things appear first.
 
 satnow will create a database, by default `.satnow.sqlite3`, in your current
 working directory. That database contains all of the collected TLE entries you
 have specified while updating. You can override the default by using the `--db`
 command line option.
 
-satnow works on position information  presented in the Two-Line Element
-([TLE](https://en.wikipedia.org/wiki/Two-line_element_set)) format (both the
-traditional two-line with the optional satellite's name/title line.).  satnow
-can download the TLE data or load pre-existing data from a text file.
+satnow works on position information presented in the Two-Line Element
+([TLE](https://en.wikipedia.org/wiki/Two-line_element_set)). satnow can
+download the TLE data or load pre-existing data from a text file on disk.
 
 Usage
 -----
 If you do not have TLE data, download some! (Use the `--update=<source file>`
 option and pass it a path to a file that contains a list of URLs to TLE data).
+In other words, the file argument to `--update` is just a newline delimited
+list of files or URLs that have the actual TLE information.
 Example: `./satnow --update=sources.txt`
 
 When running the tool, pass in your latitude and longitude in decimal degrees:
@@ -60,12 +61,14 @@ angles, and performs other positioning magic via the
 * sqlite3: Database library used for storing the collected TLE information.
 * [ncurses](https://www.gnu.org/software/ncurses/): (Optional) Curses library
 used to render the `--gui` mode.
+* [curl](https://curl.haxx.se/libcurl/): Used to download TLE data from remote
+sources specfied via a URL.
 
 Resources
 ---------
 * https://celestrak.com/: Tons of SGP orbital information and updated TLE
 listings.
-* https://tle.info/: Another source of TLE data:
+* https://tle.info/: Another source of TLE data.
 * https://www.space-track.org/:
 US Gov't contract developed site for producing TLE information.  Data is
 provided by the Joint Space Operations Center.
