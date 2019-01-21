@@ -91,14 +91,16 @@ static void updateInfoWindow(WINDOW *win, const SatLookAngle &sat) {
 // This destroys the old 'menu' and creats a new one (returned).
 // This was originally a lambda inside render(), but this routine was getting
 // rather large.
-static MENU *updateMenu(MENU *menu, int rows, int cols, SatLookAngles &sats,
-   ITEM **items,
-   std::string *itemStrs,
-    bool updatePositions) {
+static MENU *updateMenu(MENU *menu, WINDOW *win, SatLookAngles &sats,
+                        ITEM **items, std::string *itemStrs,
+                        bool updatePositions) {
   if (updatePositions) {
     sats.updateTimeAndPositions();
     sats.sort();
   }
+
+  int rows, cols;
+  getmaxyx(win, rows, cols);
 
   // Remember cursor position so we can restore it.
   ITEM *curItem = current_item(menu);
@@ -169,9 +171,8 @@ void DisplayNCurses::render(SatLookAngles &sats) {
   auto mainPanel = new_panel(win);
   panel_hidden(infoPanel);
 
-  // Populate menu.
-  MENU *menu = nullptr;
-  updateMenu(false);  // 'false' avoids calculating new look angles.
+  // Populate menu ('false' avoids calculating new look angles);
+  MENU *menu = updateMenu(nullptr, win, sats, items, itemStrs, false);
 
   // Add title and column names.
   mvwprintw(win, 0, (cols / 2 - 12), "%s", "}-- satnow " VER " --{");
@@ -215,7 +216,7 @@ void DisplayNCurses::render(SatLookAngles &sats) {
         break;
       case ' ':
       case ERR:
-        updateMenu(menu, rows, cols, sats, items, itemStrs, true);
+        updateMenu(menu, win, sats, items, itemStrs, true);
         refresh();
         break;
     }
