@@ -155,7 +155,7 @@ void DisplayNCurses::render(SatLookAngles &sats) {
   std::string colNames = ss.str();
 
   // Create a window to decorate the menu with.
-  const int rows = std::max(LINES, 50);
+  const int rows = std::max(LINES, 25);
   const int cols = std::max(COLS, 80);
   auto win = newwin(rows, cols, 0, 0);
   box(win, '|', '=');
