@@ -58,11 +58,11 @@ This library provides some useful clock and TLE classes,  calculates look
 angles, and performs other positioning magic via the
 [SGP4](https://en.wikipedia.org/wiki/Simplified_perturbations_models) model.
 *This library is downloaded and built automatically*
-* sqlite3: Database library used for storing the collected TLE information.
-* [ncurses](https://www.gnu.org/software/ncurses/): (Optional) Curses library
-used to render the `--gui` mode.
+* [sqlite3](sqlite.org): Database library used for storing the collected TLE information.
 * [curl](https://curl.haxx.se/libcurl/): Used to download TLE data from remote
 sources specfied via a URL.
+* [ncurses](https://www.gnu.org/software/ncurses/): (Optional) Curses library
+used to render the `--gui` mode.
 
 Resources
 ---------
