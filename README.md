@@ -53,7 +53,7 @@ This will also build satnow.  `make`
 
 Dependencies
 ------------
-* [libsgp4](https://github.com/dnwrnr/sgp4): @dnwrnr's awesome libsgp4 library.
+* [libsgp4](https://github.com/dnwrnr/sgp4): [dnwr's](https://github.com/dnwrnr) awesome libsgp4 library.
 This library provides some useful clock and TLE classes,  calculates look
 angles, and performs other positioning magic via the
 [SGP4](https://en.wikipedia.org/wiki/Simplified_perturbations_models) model.
