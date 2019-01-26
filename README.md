@@ -60,7 +60,7 @@ awesome libsgp4 library.  This library provides some useful clock and TLE
 classes,  calculates look angles, and performs other positioning magic via the
 [SGP4](https://en.wikipedia.org/wiki/Simplified_perturbations_models) model.
 *This library is downloaded and built automatically.*
-* [sqlite3](sqlite.org): Database library used for storing the collected TLE
+* [sqlite3](https://sqlite.org): Database library used for storing the collected TLE
   information.
 * [curl](https://curl.haxx.se/libcurl/): Used to download TLE data from remote
 sources specfied via a URL.
