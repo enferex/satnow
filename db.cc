@@ -15,7 +15,6 @@
 // limitations under the License.
 
 #include "db.hh"
-#define VER "0.1b"
 
 std::vector<Tle> DBSQLite::fetchTLEs() {
   std::vector<Tle> tles;
