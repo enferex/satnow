@@ -1,6 +1,6 @@
 // satnow: display.cc
 //
-// Copyright 2019 Matt Davis (https://github.com/enferex) 
+// Copyright 2019 Matt Davis (https://github.com/enferex)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
 // limitations under the License.
 
 #include "display.hh"
+#include "main.hh"
 #include <SGP4.h>
 #include <array>
 #include <iomanip>
 #include <iostream>
 #include <string>
 #include <utility>
-#include "main.hh"
 #if HAVE_GUI
 #include <menu.h>
 #include <ncurses.h>
@@ -83,13 +83,12 @@ static void updateInfoWindow(WINDOW *win, const SatLookAngle &sat) {
       make_pair("Designator", tle.IntDesignator()),
       make_pair("Epoch", tle.Epoch().ToString()),
       make_pair("BSTAR(drag term)", std::to_string(tle.BStar())),
-      make_pair("Inclination(degs)", std::to_string(tle.Inclination(true))),
-      make_pair("RightAscention(degs)",
+      make_pair("Inclination(deg)", std::to_string(tle.Inclination(true))),
+      make_pair("RightAscention(deg)",
                 std::to_string(tle.RightAscendingNode(true))),
       make_pair("Eccentricity", std::to_string(tle.Eccentricity())),
-      make_pair("ArgOfPerigee(degs)",
-                std::to_string(tle.ArgumentPerigee(true))),
-      make_pair("MeanAnomaly(degs)", std::to_string(tle.MeanAnomaly(true))),
+      make_pair("ArgOfPerigee(deg)", std::to_string(tle.ArgumentPerigee(true))),
+      make_pair("MeanAnomaly(deg)", std::to_string(tle.MeanAnomaly(true))),
       make_pair("MeanMotion(revs per day)", std::to_string(tle.MeanMotion())),
       make_pair("RevolutionNumber", std::to_string(tle.OrbitNumber()))};
   assert((fields.size() % 2) == 0 && "Uneven number of fields.");
@@ -101,7 +100,7 @@ static void updateInfoWindow(WINDOW *win, const SatLookAngle &sat) {
     mvwprintw(win, ++curRow, 1, "%s", ss.str().c_str());
   }
 }
-#endif  // HAVE_GUI
+#endif // HAVE_GUI
 
 #if HAVE_GUI
 // This destroys the old 'menu' and creats a new one (returned).
@@ -121,7 +120,8 @@ static MENU *updateMenu(MENU *menu, WINDOW *win, SatLookAngles &sats,
   // Remember cursor position so we can restore it.
   ITEM *curItem = current_item(menu);
   int curIdx = item_index(curItem);
-  if (curIdx < 0) curIdx = 0;
+  if (curIdx < 0)
+    curIdx = 0;
 
   // Create the strings (items) for the menu.
   for (size_t i = 0; i < sats.size(); ++i) {
@@ -129,15 +129,17 @@ static MENU *updateMenu(MENU *menu, WINDOW *win, SatLookAngles &sats,
     const auto &la = sats[i].second;
     std::stringstream ss;
     ss << std::left << std::setw(10) << std::to_string(i) << std::setw(25)
-       << tle.Name() << std::setw(12) << std::to_string(la.azimuth)
-       << std::setw(12) << std::to_string(la.elevation) << std::setw(12)
+       << tle.Name() << std::setw(15)
+       << std::to_string(Util::RadiansToDegrees(la.azimuth)) << std::setw(15)
+       << std::to_string(Util::RadiansToDegrees(la.elevation)) << std::setw(12)
        << std::to_string(la.range);
     itemStrs[i] = ss.str();
-    if (items[i]) free_item(items[i]);
+    if (items[i])
+      free_item(items[i]);
     items[i] = new_item(itemStrs[i].c_str(), nullptr);
 
     if (i == (size_t)curIdx)
-      curItem = items[i];  // Updated item at cursor position.
+      curItem = items[i]; // Updated item at cursor position.
   }
 
   // Rebuild the menu (freeing the previous one).
@@ -154,7 +156,7 @@ static MENU *updateMenu(MENU *menu, WINDOW *win, SatLookAngles &sats,
   post_menu(menu);
   return menu;
 }
-#endif  // HAVE_GUI
+#endif // HAVE_GUI
 
 void DisplayNCurses::render(SatLookAngles &sats) {
 #if HAVE_GUI
@@ -166,8 +168,8 @@ void DisplayNCurses::render(SatLookAngles &sats) {
   // Column names.
   std::stringstream ss;
   ss << std::left << std::setw(10) << "ID" << std::setw(25) << "NAME"
-     << std::setw(12) << "AZIMUTH" << std::setw(12) << "ELEVATION"
-     << std::setw(12) << "RANGE (KM)";
+     << std::setw(15) << "AZIMUTH(deg)" << std::setw(15) << "ELEVATION(deg)"
+     << std::setw(12) << "RANGE(KM)";
   std::string colNames = ss.str();
 
   // Create a window to decorate the menu with.
@@ -208,45 +210,46 @@ void DisplayNCurses::render(SatLookAngles &sats) {
   int c;
   while ((c = getch()) != 'q') {
     switch (c) {
-      case KEY_DOWN:
-        menu_driver(menu, REQ_DOWN_ITEM);
-        break;
-      case KEY_UP:
-        menu_driver(menu, REQ_UP_ITEM);
-        break;
-      case KEY_NPAGE:
-        menu_driver(menu, REQ_SCR_DPAGE);
-        break;
-      case KEY_PPAGE:
-        menu_driver(menu, REQ_SCR_UPAGE);
-        break;
-      case 'd':
-        showInfo = showInfo ^ true;
-        // Swap the main and info panel.
-        if (showInfo) {
-          const ITEM *ci = current_item(menu);
-          updateInfoWindow(infoWin, sats[item_index(ci)]);
-          show_panel(infoPanel);
-          top_panel(infoPanel);
-        } else
-          hide_panel(infoPanel);
-        break;
-      case ' ':
-      case ERR:
-        updateMenu(menu, win, sats, items, itemStrs, true);
-        refresh();
-        break;
+    case KEY_DOWN:
+      menu_driver(menu, REQ_DOWN_ITEM);
+      break;
+    case KEY_UP:
+      menu_driver(menu, REQ_UP_ITEM);
+      break;
+    case KEY_NPAGE:
+      menu_driver(menu, REQ_SCR_DPAGE);
+      break;
+    case KEY_PPAGE:
+      menu_driver(menu, REQ_SCR_UPAGE);
+      break;
+    case 'd':
+      showInfo = showInfo ^ true;
+      // Swap the main and info panel.
+      if (showInfo) {
+        const ITEM *ci = current_item(menu);
+        updateInfoWindow(infoWin, sats[item_index(ci)]);
+        show_panel(infoPanel);
+        top_panel(infoPanel);
+      } else
+        hide_panel(infoPanel);
+      break;
+    case ' ':
+    case ERR:
+      updateMenu(menu, win, sats, items, itemStrs, true);
+      refresh();
+      break;
     }
     update_panels();
     doupdate();
   }
 
   // Cleanup.
-  for (size_t i = 0; i < sats.size() + 1; ++i) free_item(items[i]);
+  for (size_t i = 0; i < sats.size() + 1; ++i)
+    free_item(items[i]);
   delete[] items;
   delete[] itemStrs;
   delwin(win);
   del_panel(mainPanel);
   del_panel(infoPanel);
-#endif  // HAVE_GUI
+#endif // HAVE_GUI
 }

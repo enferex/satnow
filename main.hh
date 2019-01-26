@@ -1,6 +1,6 @@
 // satnow: main.hh
 //
-// Copyright 2019 Matt Davis (https://github.com/enferex) 
+// Copyright 2019 Matt Davis (https://github.com/enferex)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
 #ifndef __SATNOW_MAIN_HH
 #define __SATNOW_MAIN_HH
 
+#include "db.hh"
 #include <CoordTopocentric.h>
 #include <DateTime.h>
 #include <Observer.h>
 #include <SGP4.h>
 #include <algorithm>
-#include "db.hh"
 
 // Version info. Excuse the ugly trick to get strigification for a macro value.
 #define MAJOR 0
@@ -37,13 +37,13 @@ using SatLookAngle = std::pair<Tle, CoordTopocentric>;
 
 // Container class for holding Tle and look angles.
 class SatLookAngles {
- private:
+private:
   double _lat, _lon, _alt;
   std::vector<SatLookAngle> _sats;
   Observer _me;
   DateTime _time;
 
- public:
+public:
   SatLookAngles(double lat, double lon, double alt)
       : _me(lat, lon, alt), _time(DateTime::Now(true)) {}
 
@@ -87,4 +87,4 @@ class SatLookAngles {
 // look angles with respect to lat/lon/alt.
 SatLookAngles getSatellitesAndLookAngles(double lat, double lon, double alt,
                                          DB &db);
-#endif  // __SATNOW_MAIN_HH
+#endif // __SATNOW_MAIN_HH

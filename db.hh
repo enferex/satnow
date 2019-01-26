@@ -1,6 +1,6 @@
 // satnow: main.cc
 //
-// Copyright 2019 Matt Davis (https://github.com/enferex) 
+// Copyright 2019 Matt Davis (https://github.com/enferex)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 #define DEFAULT_DB_PATH "./.satnow.sql3"
 
 class DB {
- public:
+public:
   virtual std::vector<Tle> fetchTLEs() = 0;
   virtual void update(const Tle &tle) = 0;
   virtual bool ok() const = 0;
@@ -32,10 +32,10 @@ class DB {
 };
 
 class DBSQLite final : public DB {
- private:
+private:
   sqlite3 *_sql;
 
- public:
+public:
   DBSQLite(const char *dbFile);
   virtual ~DBSQLite();
   bool ok() const override final;
@@ -44,4 +44,4 @@ class DBSQLite final : public DB {
   std::string getErrorString() const override final;
 };
 
-#endif  // __SATNOW_DB_HH
+#endif // __SATNOW_DB_HH

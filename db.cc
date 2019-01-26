@@ -1,6 +1,6 @@
 // satnow: db.cc
 //
-// Copyright 2019 Matt Davis (https://github.com/enferex) 
+// Copyright 2019 Matt Davis (https://github.com/enferex)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@ std::vector<Tle> DBSQLite::fetchTLEs() {
   const char *q = "SELECT name, line1, line2 FROM tle;";
   auto cb = [](void *tleptr, int nCols, char **row, char **colName) {
     auto tles = static_cast<std::vector<Tle> *>(tleptr);
-    if (nCols != 3) return SQLITE_OK;
+    if (nCols != 3)
+      return SQLITE_OK;
     std::string name(row[0]);
     std::string line1(row[1]);
     std::string line2(row[2]);
@@ -52,11 +53,10 @@ void DBSQLite::update(const Tle &tle) {
 DBSQLite::DBSQLite(const char *dbFile) {
   // Open DB and if not a failure, then setup the table data.
   if (!sqlite3_open(dbFile, &_sql)) {
-    const char *q =
-        "CREATE TABLE IF NOT EXISTS tle "
-        "(timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
-        "norad INT PRIMARY KEY, "
-        "name TEXT, line1 TEXT, line2 TEXT)";
+    const char *q = "CREATE TABLE IF NOT EXISTS tle "
+                    "(timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
+                    "norad INT PRIMARY KEY, "
+                    "name TEXT, line1 TEXT, line2 TEXT)";
     sqlite3_exec(_sql, q, nullptr, nullptr, nullptr);
   }
 }

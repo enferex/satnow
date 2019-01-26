@@ -1,6 +1,6 @@
 // satnow: main.cc
 //
-// Copyright 2019 Matt Davis (https://github.com/enferex) 
+// Copyright 2019 Matt Davis (https://github.com/enferex)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,17 +15,17 @@
 // limitations under the License.
 
 #include "main.hh"
-#include <curl/curl.h>
-#include <getopt.h>
+#include "db.hh"
+#include "display.hh"
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
+#include <curl/curl.h>
 #include <fstream>
+#include <getopt.h>
 #include <iostream>
 #include <string>
 #include <vector>
-#include "db.hh"
-#include "display.hh"
 
 // Resources:
 // https://www.celestrak.com/NORAD/documentation/tle-fmt.php
@@ -74,10 +74,12 @@ static const struct option opts[] = {
 }
 
 bool readLine(FILE *fp, std::string &str) {
-  if (feof(fp) || ferror(fp)) return false;
+  if (feof(fp) || ferror(fp))
+    return false;
   char *line;
   size_t n = 0;
-  if (!getline(&line, &n, fp) || n == 0) return false;
+  if (!getline(&line, &n, fp) || n == 0)
+    return false;
   str = std::string(line);
   free(line);
   if (str.size() == 0 && feof(fp))
@@ -96,12 +98,15 @@ static std::vector<Tle> readTLEs(const std::string &fname, FILE *fp) {
 
   while (readLine(fp, line1)) {
     ++lineNo;
-    if (std::isalpha(line1[0]) || line1.size() <= 24) name = line1;
+    if (std::isalpha(line1[0]) || line1.size() <= 24)
+      name = line1;
     // Trim trailing whitespace from name.
     auto en = name.find_last_not_of(" \t\r\n");
-    if (en != std::string::npos) name = name.substr(0, en + 1);
+    if (en != std::string::npos)
+      name = name.substr(0, en + 1);
     // Celestrak and wikipedia say that names are 24 bytes, libsgp4 says 22.
-    if (name.size() > 22) name = name.substr(0, 22);
+    if (name.size() > 22)
+      name = name.substr(0, 22);
     ++lineNo;
     if (!readLine(fp, line1)) {
       std::cerr << "Unexpected error reading TLE line 1 at line " << lineNo
@@ -124,10 +129,12 @@ static std::vector<Tle> readTLEs(const std::string &fname, FILE *fp) {
 
 static bool tryParseFile(const std::string &fname, std::vector<Tle> &tles) {
   // If it looks like a URL, don't try to open it.
-  if (fname.find("://") != std::string::npos) return false;
+  if (fname.find("://") != std::string::npos)
+    return false;
 
-  FILE *fp;  // We use c-style file i/o so we can use tmpfile in tryParseURL.
-  if (!(fp = fopen(fname.c_str(), "r"))) return false;
+  FILE *fp; // We use c-style file i/o so we can use tmpfile in tryParseURL.
+  if (!(fp = fopen(fname.c_str(), "r")))
+    return false;
 
   // Read the new TLEs and add them to 'tles'.
   auto newTLEs = readTLEs(fname, fp);
@@ -139,15 +146,19 @@ static bool tryParseFile(const std::string &fname, std::vector<Tle> &tles) {
 
 static bool tryParseURL(const std::string &fname, std::vector<Tle> &tles) {
   CURL *crl = curl_easy_init();
-  if (!crl) return false;
-  if (curl_easy_setopt(crl, CURLOPT_URL, fname.c_str())) return false;
+  if (!crl)
+    return false;
+  if (curl_easy_setopt(crl, CURLOPT_URL, fname.c_str()))
+    return false;
 
   // Ignore any "URLs" that do not have a protocol delimiter.
-  if (fname.find("://") == std::string::npos) return false;
+  if (fname.find("://") == std::string::npos)
+    return false;
 
   // Prepare to download the TLE data into a temp file.
   FILE *fp = tmpfile();
-  if (!fp) return false;
+  if (!fp)
+    return false;
   if (curl_easy_setopt(crl, CURLOPT_WRITEDATA, fp)) {
     fclose(fp);
     curl_easy_cleanup(crl);
@@ -188,14 +199,17 @@ static void update(const char *sourceFile, DB &db, bool verbose) {
     ++en;
 
     // If a comment line, ignore.
-    if (line[st] == '#') continue;
+    if (line[st] == '#')
+      continue;
 
     // Reject empty lines.
-    if (en - st == 0) continue;
+    if (en - st == 0)
+      continue;
 
     // Trim comments and any spaces from the end.
     const auto comments = line.find_first_of("# \t\r\n", st);
-    if (comments != std::string::npos) en = comments;
+    if (comments != std::string::npos)
+      en = comments;
 
     // Get the trimmed string.
     const auto str = line.substr(st, en - st);
@@ -229,7 +243,8 @@ SatLookAngles getSatellitesAndLookAngles(double lat, double lon, double alt,
   std::vector<Tle> tles = db.fetchTLEs();
 
   // Add the TLEs (this will automatically generate look angles.).
-  for (const auto &tle : tles) sats.add(tle);
+  for (const auto &tle : tles)
+    sats.add(tle);
 
   // Sort by increasing range.
   sats.sort();
@@ -245,38 +260,38 @@ int main(int argc, char **argv) {
   while ((opt = getopt_long(argc, argv, optStr, opts, nullptr)) > 0) {
     switch (opt) {
 #if HAVE_GUI
-      case 'g':
-        gui = true;
-        break;
-      case 'r':
-        refreshRate = std::stoi(optarg);
-        break;
+    case 'g':
+      gui = true;
+      break;
+    case 'r':
+      refreshRate = std::stoi(optarg);
+      break;
 #endif
-      case 'h':
-        usage(argv[0]);
-        break;
-      case 'v':
-        verbose = true;
-        break;
-      case 'a':
-        alt = std::stod(optarg);
-        break;
-      case 'd':
-        dbFile = optarg;
-        break;
-      case 'u':
-        sourceFile = optarg;
-        break;
-      case 'x':
-        lat = std::stod(optarg);
-        break;
-      case 'y':
-        lon = std::stod(optarg);
-        break;
-      default:
-        std::cerr << "[-] Unknown command line option." << std::endl;
-        exit(EXIT_FAILURE);
-        break;
+    case 'h':
+      usage(argv[0]);
+      break;
+    case 'v':
+      verbose = true;
+      break;
+    case 'a':
+      alt = std::stod(optarg);
+      break;
+    case 'd':
+      dbFile = optarg;
+      break;
+    case 'u':
+      sourceFile = optarg;
+      break;
+    case 'x':
+      lat = std::stod(optarg);
+      break;
+    case 'y':
+      lon = std::stod(optarg);
+      break;
+    default:
+      std::cerr << "[-] Unknown command line option." << std::endl;
+      exit(EXIT_FAILURE);
+      break;
     }
   }
 
@@ -306,7 +321,8 @@ int main(int argc, char **argv) {
   }
 
   // If a source file is specified, then update the existing database.
-  if (sourceFile) update(sourceFile, db, verbose);
+  if (sourceFile)
+    update(sourceFile, db, verbose);
 
   // Calculate and display.
   auto TLEsAndLAs = getSatellitesAndLookAngles(lat, lon, alt, db);

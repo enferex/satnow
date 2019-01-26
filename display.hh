@@ -1,6 +1,6 @@
 // satnow: display.hh
 //
-// Copyright 2019 Matt Davis (https://github.com/enferex) 
+// Copyright 2019 Matt Davis (https://github.com/enferex)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,22 +26,22 @@
 class SatLookAngles;
 
 class Display {
- public:
+public:
   virtual void render(SatLookAngles &sats) = 0;
 };
 
 class DisplayConsole final : public Display {
- public:
+public:
   void render(SatLookAngles &sats) override final;
 };
 
 class DisplayNCurses final : public Display {
- private:
-  int _refreshSecs;  // Number of seconds between refreshing gui data.
- public:
+private:
+  int _refreshSecs; // Number of seconds between refreshing gui data.
+public:
   DisplayNCurses(int refreshSeconds = -1);
   virtual ~DisplayNCurses();
   void render(SatLookAngles &sats) override final;
 };
 
-#endif  // __SATNOW_DISPLAY_HH
+#endif // __SATNOW_DISPLAY_HH
