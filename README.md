@@ -1,7 +1,7 @@
 satnow: Collect satellite data and calculate look angles.
 =========================================================
 *This is alpha (which is my excuse if something doesn't
-function as accuractly or correctly).*
+function accurately or correctly).*
 
 satnow is a utility for collecting satellite position information and for
 displaying satellite look angles.  This might be useful for those interested in
