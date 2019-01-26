@@ -50,8 +50,8 @@ Building
 1. Create a build directory. `mkdir satnow/build`
 1. From the just created build directory, invoke cmake with the path to the
  satnow sources. `cd satnow/build; cmake ../`
-1. Invoke `make` to automatically download and build the libsgp4 dependency.
-This will also build satnow:  `make`
+1. Invoke `make` to download and build the libsgp4 dependency, as well as
+build satnow.
 
 Dependencies
 ------------
