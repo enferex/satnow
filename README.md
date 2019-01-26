@@ -85,4 +85,4 @@ Screen Shot
 
 Contact
 -------
-Matt Davis: [https://github.com/enferex](github.com/enferex)
+Matt Davis: https://github.com/enferex
