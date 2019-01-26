@@ -69,10 +69,10 @@ used to render the `--gui` mode.
 
 Resources
 ---------
-* [https://celestrak.com/](celestrak.com) -Tons of SGP orbital information and
+* https://celestrak.com: Tons of SGP orbital information and
 updated TLE listings.
-* [https://tle.info/](tle.info): Another source of TLE data.
-* [https://www.space-track.org/](space-track.org):
+* https://tle.info: Another source of TLE data.
+* https://space-track.org:
 US Gov't contract developed site for producing TLE information.  Data is
 provided by the Joint Space Operations Center.
 * [TLESniff](https://github.com/enferex/TLESniff):  Much of the frontend of this
