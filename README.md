@@ -1,5 +1,7 @@
 satnow: Collect satellite data and calculate look angles.
-==========================================================
+=========================================================
+*This is alpha (which is my excuse if something doesn't
+function as accuractly or correctly).*
 
 satnow is a utility for collecting satellite position information and for
 displaying satellite look angles.  This might be useful for those interested in
@@ -76,6 +78,10 @@ provided by the Joint Space Operations Center.
 * [TLESniff](https://github.com/enferex/TLESniff):  Much of the frontend of this
 tool was based on functionality also presented in my TLESniff program.  If all
 you want to do is collect and store TLE data, use that.
+
+Screen Shot
+-----------
+![](https://i.imgur.com/ewoQ2SU.png)
 
 Contact
 -------
