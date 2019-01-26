@@ -33,10 +33,10 @@ paths and URLs. Each URL and path must be on its own line. Those paths and URLs
 contain
 the actual set of TLE data.  For example:
 ```
-# Example source file for use with the --update option
-/path/to/TLE.txt  # Some of my favorite TLE data
-/path/to/TLE2.txt # More awesome TLE entries
-http://some.example.com/noaa-tle.txt # A fictitious URL containing TLE data.
+    # Example source file for use with the --update option
+    /path/to/TLE.txt  # Some of my favorite TLE data
+    /path/to/TLE2.txt # More awesome TLE entries
+    http://some.example.com/noaa-tle.txt # A fictitious URL containing TLE data.
 ```
 The (optional) `--gui` support is recommended, as it presents the data in a
 clean manner that is easy to refresh.  The refresh of data means re-calculating
@@ -45,20 +45,21 @@ position changes predictably quick).
 
 Building
 --------
-1. Create a separate build directory.
+1. Create a build directory. `mkdir satnow/build`
 1. From the just created build directory, invoke cmake with the path to the
- satnow sources. `cmake <path-to-satnow sources`
+ satnow sources. `cd satnow/build; cmake ../`
 1. Invoke `make` to automatically download and build the libsgp4 dependency.
-This will also build satnow.  `make`
+This will also build satnow:  `make`
 
 Dependencies
 ------------
-* [libsgp4](https://github.com/dnwrnr/sgp4): [dnwr's](https://github.com/dnwrnr) awesome libsgp4 library.
-This library provides some useful clock and TLE classes,  calculates look
-angles, and performs other positioning magic via the
+* [libsgp4](https://github.com/dnwrnr/sgp4): [dnwr's](https://github.com/dnwrnr)
+awesome libsgp4 library.  This library provides some useful clock and TLE
+classes,  calculates look angles, and performs other positioning magic via the
 [SGP4](https://en.wikipedia.org/wiki/Simplified_perturbations_models) model.
-*This library is downloaded and built automatically*
-* [sqlite3](sqlite.org): Database library used for storing the collected TLE information.
+*This library is downloaded and built automatically.*
+* [sqlite3](sqlite.org): Database library used for storing the collected TLE
+  information.
 * [curl](https://curl.haxx.se/libcurl/): Used to download TLE data from remote
 sources specfied via a URL.
 * [ncurses](https://www.gnu.org/software/ncurses/): (Optional) Curses library
@@ -66,10 +67,10 @@ used to render the `--gui` mode.
 
 Resources
 ---------
-* https://celestrak.com/: Tons of SGP orbital information and updated TLE
-listings.
-* https://tle.info/: Another source of TLE data.
-* https://www.space-track.org/:
+* [https://celestrak.com/](celestrak.com) -Tons of SGP orbital information and
+updated TLE listings.
+* [https://tle.info/](tle.info): Another source of TLE data.
+* [https://www.space-track.org/](space-track.org):
 US Gov't contract developed site for producing TLE information.  Data is
 provided by the Joint Space Operations Center.
 * [TLESniff](https://github.com/enferex/TLESniff):  Much of the frontend of this
@@ -78,4 +79,4 @@ you want to do is collect and store TLE data, use that.
 
 Contact
 -------
-Matt Davis: https://github.com/enferex
+Matt Davis: [https://github.com/enferex](github.com/enferex)
