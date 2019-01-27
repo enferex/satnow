@@ -76,7 +76,7 @@ static const struct option opts[] = {
 bool readLine(FILE *fp, std::string &str) {
   if (feof(fp) || ferror(fp))
     return false;
-  char *line;
+  char *line = nullptr;
   size_t n = 0;
   if (!getline(&line, &n, fp) || n == 0)
     return false;
